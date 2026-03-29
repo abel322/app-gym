@@ -1,0 +1,226 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum ActivityLevel {
+  SEDENTARY
+  LIGHTLY_ACTIVE
+  MODERATELY_ACTIVE
+  VERY_ACTIVE
+  EXTRA_ACTIVE
+}
+
+enum Goal {
+  LOSE_WEIGHT
+  GAIN_MUSCLE
+  MAINTAIN
+  RECOMPOSITION
+}
+
+enum DifficultyLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String
+  gender        Gender?
+  age           Int?
+  height        Float?
+  weight        Float?
+  goal          Goal?
+  activityLevel ActivityLevel?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  bodyMeasurements   BodyMeasurement[]
+  workouts           Workout[]
+  workoutLogs        WorkoutLog[]
+  nutritionPlans     NutritionPlan[]
+  meals              Meal[]
+  progressPhotos     ProgressPhoto[]
+  predictions        Prediction[]
+}
+
+model BodyMeasurement {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date        DateTime @default(now())
+  weight      Float?
+  height      Float?
+  chest       Float?
+  waist       Float?
+  hips        Float?
+  biceps      Float?
+  thighs      Float?
+  calves      Float?
+  neck        Float?
+  shoulders   Float?
+  bodyFat     Float?
+  muscleMass  Float?
+
+  @@index([userId])
+  @@index([userId, date])
+}
+
+model Workout {
+  id          String         @id @default(cuid())
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  difficulty  DifficultyLevel @default(BEGINNER)
+  duration    Int?
+  exercises   WorkoutExercise[]
+  workoutLogs WorkoutLog[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([userId])
+}
+
+model Exercise {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  muscleGroup String
+  equipment   String?
+  videoUrl    String?
+  imageUrl    String?
+
+  workoutExercises WorkoutExercise[]
+  workoutLogs      WorkoutLog[]
+}
+
+model WorkoutExercise {
+  id         String   @id @default(cuid())
+  workoutId  String
+  workout    Workout  @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  exerciseId String
+  exercise   Exercise @relation(fields: [exerciseId], references: [id])
+  order      Int      @default(0)
+  sets       Int      @default(3)
+  reps       Int      @default(10)
+  restSeconds Int     @default(60)
+  weight     Float?
+
+  @@index([workoutId])
+  @@index([exerciseId])
+}
+
+model WorkoutLog {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workoutId   String
+  workout     Workout  @relation(fields: [workoutId], references: [id])
+  exerciseId  String
+  exercise    Exercise @relation(fields: [exerciseId], references: [id])
+  date        DateTime @default(now())
+  sets        Int
+  reps        Int
+  weight      Float?
+  duration    Int?
+
+  @@index([userId])
+  @@index([userId, date])
+  @@index([workoutId])
+}
+
+model NutritionPlan {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  calories    Int
+  protein     Int
+  carbs       Int
+  fat         Int
+  meals       Meal[]
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Meal {
+  id              String         @id @default(cuid())
+  userId          String
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nutritionPlanId String?
+  nutritionPlan   NutritionPlan? @relation(fields: [nutritionPlanId], references: [id])
+  name            String
+  time            String
+  calories        Int
+  protein         Int
+  carbs          Int
+  fat            Int
+  foods           MealFood[]
+  createdAt       DateTime       @default(now())
+
+  @@index([userId])
+  @@index([nutritionPlanId])
+}
+
+model MealFood {
+  id        String   @id @default(cuid())
+  mealId    String
+  meal      Meal     @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  name      String
+  quantity  Float
+  unit      String
+  calories  Int
+  protein   Int
+  carbs     Float
+  fat       Float
+
+  @@index([mealId])
+}
+
+model ProgressPhoto {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      DateTime @default(now())
+  type      String
+  photoUrl  String
+  notes     String?
+
+  @@index([userId])
+  @@index([userId, date])
+}
+
+model Prediction {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  targetDate DateTime
+  targetValue Float
+  confidence Float
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, type])
+}

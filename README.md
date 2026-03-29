@@ -1,36 +1,191 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Body Transformation Planner 💪
 
-## Getting Started
+Aplicación web completa para seguimiento de transformación física, entrenamientos, nutrición y progreso corporal.
 
-First, run the development server:
+## 🚀 Características
+
+- ✅ Autenticación con NextAuth
+- ✅ Dashboard interactivo con estadísticas
+- ✅ Gestión de mediciones corporales
+- ✅ Seguimiento de entrenamientos
+- ✅ Planes de nutrición personalizados
+- ✅ Análisis y gráficos de progreso
+- ✅ Recomendaciones basadas en IA
+- ✅ Cálculo automático de macros
+- ✅ Predicciones de progreso
+
+## 🛠️ Tecnologías
+
+- **Framework**: Next.js 14 (App Router)
+- **Base de datos**: PostgreSQL + Prisma ORM
+- **Autenticación**: NextAuth.js
+- **UI**: Tailwind CSS + Radix UI + Framer Motion
+- **Estado**: Zustand
+- **Validación**: Zod
+- **Gráficos**: Recharts
+
+## 📦 Instalación
+
+1. **Clonar el repositorio**
+```bash
+git clone <tu-repo>
+cd app-gym
+```
+
+2. **Instalar dependencias**
+```bash
+npm install
+```
+
+3. **Configurar variables de entorno**
+
+Crea un archivo `.env` en la raíz del proyecto:
+
+```env
+# Database
+DATABASE_URL="postgresql://usuario:password@localhost:5432/body_transformation?schema=public"
+
+# NextAuth
+NEXTAUTH_SECRET="tu-secret-key-super-segura"
+NEXTAUTH_URL="http://localhost:3000"
+```
+
+4. **Configurar la base de datos**
+
+```bash
+# Crear las tablas en la base de datos
+npm run db:push
+
+# Poblar con datos iniciales (ejercicios)
+npm run db:seed
+```
+
+5. **Ejecutar en desarrollo**
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📁 Estructura del Proyecto
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+src/
+├── app/
+│   ├── (auth)/          # Páginas de autenticación
+│   │   ├── login/
+│   │   └── register/
+│   ├── (dashboard)/     # Páginas del dashboard
+│   │   ├── dashboard/
+│   │   ├── profile/
+│   │   ├── measurements/
+│   │   ├── workouts/
+│   │   ├── nutrition/
+│   │   ├── analytics/
+│   │   └── progress/
+│   └── api/            # API Routes
+│       ├── auth/
+│       ├── users/
+│       ├── workouts/
+│       ├── measurements/
+│       └── nutrition/
+├── components/
+│   ├── cards/          # Componentes de tarjetas
+│   ├── charts/         # Gráficos
+│   ├── layout/         # Layout components
+│   └── ui/             # Componentes UI base
+├── hooks/              # Custom hooks
+├── lib/
+│   ├── algorithms/     # Algoritmos de cálculo
+│   ├── auth.ts         # Configuración NextAuth
+│   ├── prisma.ts       # Cliente Prisma
+│   ├── utils.ts        # Utilidades
+│   └── validations.ts  # Schemas Zod
+├── store/              # Zustand stores
+└── types/              # TypeScript types
+```
 
-## Learn More
+## 🎯 Uso
 
-To learn more about Next.js, take a look at the following resources:
+### Registro e Inicio de Sesión
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Accede a `/register` para crear una cuenta
+2. Inicia sesión en `/login`
+3. Completa tu perfil con datos personales
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Dashboard
 
-## Deploy on Vercel
+- **Vista general**: Estadísticas, peso actual, IMC, racha de entrenamientos
+- **Gráficos**: Evolución de peso y actividad
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Mediciones
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Registra peso, medidas corporales y porcentaje de grasa
+- Visualiza evolución en gráficos
+- Compara con mediciones anteriores
+
+### Entrenamientos
+
+- Crea rutinas personalizadas
+- Selecciona ejercicios de la biblioteca (27 ejercicios predefinidos)
+- Registra tus sesiones de entrenamiento
+
+### Nutrición
+
+- Crea planes nutricionales
+- Calcula macros automáticamente según tu objetivo
+- Registra comidas diarias
+
+### Análisis y Progreso
+
+- Visualiza gráficos de evolución
+- Recibe recomendaciones personalizadas
+- Analiza tendencias de progreso
+
+## 🗄️ Base de Datos
+
+El proyecto usa PostgreSQL con Prisma. Modelos principales:
+
+- **User**: Usuarios y perfiles
+- **BodyMeasurement**: Mediciones corporales
+- **Workout**: Rutinas de entrenamiento
+- **Exercise**: Biblioteca de ejercicios
+- **WorkoutLog**: Registro de entrenamientos
+- **NutritionPlan**: Planes nutricionales
+- **Meal**: Comidas registradas
+
+## 🔧 Scripts Disponibles
+
+```bash
+npm run dev          # Desarrollo
+npm run build        # Build producción
+npm run start        # Iniciar producción
+npm run lint         # Linter
+npm run db:push      # Sincronizar schema con DB
+npm run db:seed      # Poblar datos iniciales
+npm run db:studio    # Abrir Prisma Studio
+```
+
+## 🚀 Despliegue
+
+### Vercel (Recomendado)
+
+1. Conecta tu repositorio a Vercel
+2. Configura las variables de entorno
+3. Despliega automáticamente
+
+### Otras plataformas
+
+Asegúrate de:
+- Configurar PostgreSQL
+- Establecer variables de entorno
+- Ejecutar `npm run db:push` después del despliegue
+
+## 📝 Licencia
+
+MIT
+
+## 👨‍💻 Autor
+
+Tu nombre
