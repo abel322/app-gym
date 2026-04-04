@@ -17,7 +17,8 @@ export default withAuth(
           path.startsWith("/register") || 
           path.startsWith("/nutricion-info") || 
           path.startsWith("/dieta-superavit") ||
-          path.startsWith("/mediciones-progreso")
+          path.startsWith("/mediciones-progreso") ||
+          path.startsWith("/guia-dashboard")
         ) {
           return true;
         }

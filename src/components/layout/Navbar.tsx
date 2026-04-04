@@ -22,6 +22,7 @@ export default function Navbar() {
     { name: "Guía Completa de Nutrición", href: "/nutricion-info" },
     { name: "Dieta Superávit", href: "/dieta-superavit" },
     { name: "Mediciones y Progreso", href: "/mediciones-progreso" },
+    { name: "Guía del Dashboard", href: "/guia-dashboard" },
   ];
 
   return (
