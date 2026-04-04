@@ -11,7 +11,14 @@ export default withAuth(
         const path = req.nextUrl.pathname;
 
         // Public paths
-        if (path === "/" || path.startsWith("/login") || path.startsWith("/register") || path.startsWith("/nutricion-info")) {
+        if (
+          path === "/" || 
+          path.startsWith("/login") || 
+          path.startsWith("/register") || 
+          path.startsWith("/nutricion-info") || 
+          path.startsWith("/dieta-superavit") ||
+          path.startsWith("/mediciones-progreso")
+        ) {
           return true;
         }
 

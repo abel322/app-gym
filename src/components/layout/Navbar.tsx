@@ -2,19 +2,26 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Menu, X, Dumbbell, Apple, TrendingUp, User } from "lucide-react";
+import { Menu, X, Dumbbell, Apple, TrendingUp, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isNutritionOpen, setIsNutritionOpen] = useState(false);
 
   const toggleMenu = () => setIsOpen(!isOpen);
+  const toggleNutrition = () => setIsNutritionOpen(!isNutritionOpen);
 
   const menuItems = [
     { name: "Inicio", href: "/", icon: null },
     { name: "Entrenamientos", href: "/#entrenamientos", icon: Dumbbell },
-    { name: "Nutrición", href: "/nutricion-info", icon: Apple },
     { name: "Progreso", href: "/#progreso", icon: TrendingUp },
+  ];
+
+  const nutritionSubmenu = [
+    { name: "Guía Completa de Nutrición", href: "/nutricion-info" },
+    { name: "Dieta Superávit", href: "/dieta-superavit" },
+    { name: "Mediciones y Progreso", href: "/mediciones-progreso" },
   ];
 
   return (
@@ -43,6 +50,38 @@ export default function Navbar() {
                 <span>{item.name}</span>
               </Link>
             ))}
+            
+            {/* Nutrition Dropdown */}
+            <div className="relative group">
+              <button
+                className="flex items-center space-x-1 text-gray-300 hover:text-white transition-colors duration-200"
+                onMouseEnter={() => setIsNutritionOpen(true)}
+                onMouseLeave={() => setIsNutritionOpen(false)}
+              >
+                <Apple className="h-4 w-4" />
+                <span>Nutrición</span>
+                <ChevronDown className="h-4 w-4" />
+              </button>
+              
+              {/* Dropdown Menu */}
+              <div
+                className={`absolute top-full left-0 mt-2 w-64 bg-slate-900/95 backdrop-blur-lg border border-purple-500/20 rounded-lg shadow-lg transition-all duration-200 ${
+                  isNutritionOpen ? 'opacity-100 visible' : 'opacity-0 invisible'
+                }`}
+                onMouseEnter={() => setIsNutritionOpen(true)}
+                onMouseLeave={() => setIsNutritionOpen(false)}
+              >
+                {nutritionSubmenu.map((item) => (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className="block px-4 py-3 text-gray-300 hover:text-white hover:bg-purple-500/10 transition-colors duration-200 first:rounded-t-lg last:rounded-b-lg"
+                  >
+                    {item.name}
+                  </Link>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* Desktop Auth Buttons */}
@@ -84,6 +123,36 @@ export default function Navbar() {
                 <span>{item.name}</span>
               </Link>
             ))}
+            
+            {/* Mobile Nutrition Submenu */}
+            <div>
+              <button
+                onClick={toggleNutrition}
+                className="flex items-center justify-between w-full px-4 py-3 text-gray-300 hover:text-white hover:bg-purple-500/10 rounded-lg transition-all duration-200"
+              >
+                <div className="flex items-center space-x-2">
+                  <Apple className="h-5 w-5" />
+                  <span>Nutrición</span>
+                </div>
+                <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isNutritionOpen ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {isNutritionOpen && (
+                <div className="ml-4 mt-2 space-y-2">
+                  {nutritionSubmenu.map((item) => (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      onClick={toggleMenu}
+                      className="block px-4 py-2 text-gray-400 hover:text-white hover:bg-purple-500/10 rounded-lg transition-all duration-200"
+                    >
+                      {item.name}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+            
             <div className="pt-4 space-y-2">
               <Link href="/login" onClick={toggleMenu}>
                 <Button variant="ghost" className="w-full text-white hover:text-purple-400">
