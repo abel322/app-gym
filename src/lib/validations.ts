@@ -36,18 +36,18 @@ export const measurementSchema = z.object({
     if (typeof arg === "string" || arg instanceof Date) return new Date(arg);
     return arg;
   }, z.date()).default(() => new Date()),
-  weight: z.number().min(20).max(300).optional(),
-  height: z.number().min(100).max(250).optional(),
-  chest: z.number().min(20).max(200).optional(),
-  waist: z.number().min(20).max(200).optional(),
-  hips: z.number().min(20).max(200).optional(),
-  biceps: z.number().min(10).max(100).optional(),
-  thighs: z.number().min(10).max(100).optional(),
-  calves: z.number().min(10).max(100).optional(),
-  neck: z.number().min(10).max(100).optional(),
-  shoulders: z.number().min(20).max(200).optional(),
-  bodyFat: z.number().min(1).max(60).optional(),
-  muscleMass: z.number().min(10).max(150).optional(),
+  weight: z.number().min(20).max(300).nullable().optional(),
+  height: z.number().min(100).max(250).nullable().optional(),
+  chest: z.number().min(20).max(200).nullable().optional(),
+  waist: z.number().min(20).max(200).nullable().optional(),
+  hips: z.number().min(20).max(200).nullable().optional(),
+  biceps: z.number().min(10).max(100).nullable().optional(),
+  thighs: z.number().min(10).max(100).nullable().optional(),
+  calves: z.number().min(10).max(100).nullable().optional(),
+  neck: z.number().min(10).max(100).nullable().optional(),
+  shoulders: z.number().min(20).max(200).nullable().optional(),
+  bodyFat: z.number().min(1).max(60).nullable().optional(),
+  muscleMass: z.number().min(10).max(150).nullable().optional(),
 });
 
 export const workoutSchema = z.object({
