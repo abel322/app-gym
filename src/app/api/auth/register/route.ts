@@ -2,11 +2,22 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
 import { registerSchema } from "@/lib/validations";
+import { ZodError } from "zod";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const validatedData = registerSchema.parse(body);
+    
+    // Validación con Zod
+    const result = registerSchema.safeParse(body);
+    if (!result.success) {
+      return NextResponse.json(
+        { error: result.error.errors[0].message },
+        { status: 400 }
+      );
+    }
+    
+    const validatedData = result.data;
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
@@ -15,7 +26,7 @@ export async function POST(request: Request) {
 
     if (existingUser) {
       return NextResponse.json(
-        { error: "El usuario ya existe" },
+        { error: "El usuario ya existe con este correo electrónico" },
         { status: 400 }
       );
     }
@@ -39,11 +50,21 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(user, { status: 201 });
-  } catch (error) {
-    console.error("Registration error:", error);
+  } catch (error: any) {
+    console.error("Registration error details:", error);
+    
+    // Manejar errores específicos de Prisma
+    if (error.code === 'P2002') {
+      return NextResponse.json(
+        { error: "El correo electrónico ya está en uso" },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
-      { error: "Error al registrar usuario" },
+      { error: `Error en el servidor: ${error.message || "Error desconocido"}` },
       { status: 500 }
     );
   }
 }
+
