@@ -14,7 +14,9 @@ import { formatDate } from "@/lib/utils";
 import { BodyMeasurementsChart } from "@/components/charts/BodyMeasurementsChart";
 
 export default function MeasurementsPage() {
-  const { measurements, createMeasurement, deleteMeasurement, isLoading } = useMeasurements();
+  const { measurements, createMeasurement, deleteMeasurement, isLoading, loadMeasurements } = useMeasurements();
+  console.log("Current measurements in component:", measurements);
+
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -292,8 +294,11 @@ export default function MeasurementsPage() {
 
         {/* Measurements History */}
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Historial de Mediciones</CardTitle>
+            <Button variant="outline" size="sm" onClick={() => loadMeasurements()}>
+              Actualizar
+            </Button>
           </CardHeader>
           <CardContent>
             {measurements.length > 0 ? (
