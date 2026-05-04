@@ -22,6 +22,10 @@ export function BodyMeasurementsChart({ measurements }: BodyMeasurementsChartPro
     { value: "hips", label: "Cadera", unit: " cm" },
     { value: "biceps", label: "Bíceps", unit: " cm" },
     { value: "thighs", label: "Muslos", unit: " cm" },
+    { value: "calves", label: "Pantorrillas", unit: " cm" },
+    { value: "neck", label: "Cuello", unit: " cm" },
+    { value: "shoulders", label: "Hombros", unit: " cm" },
+    { value: "muscleMass", label: "Masa Muscular", unit: " kg" },
   ];
 
   const selectedMetricData = metrics.find((m) => m.value === selectedMetric);

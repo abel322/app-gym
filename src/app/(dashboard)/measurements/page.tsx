@@ -15,8 +15,6 @@ import { BodyMeasurementsChart } from "@/components/charts/BodyMeasurementsChart
 
 export default function MeasurementsPage() {
   const { measurements, createMeasurement, deleteMeasurement, isLoading, loadMeasurements } = useMeasurements();
-  console.log("Current measurements in component:", measurements);
-
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -27,7 +25,11 @@ export default function MeasurementsPage() {
     hips: "",
     biceps: "",
     thighs: "",
+    calves: "",
+    neck: "",
+    shoulders: "",
     bodyFat: "",
+    muscleMass: "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -43,7 +45,11 @@ export default function MeasurementsPage() {
         hips: formData.hips ? parseFloat(formData.hips) : undefined,
         biceps: formData.biceps ? parseFloat(formData.biceps) : undefined,
         thighs: formData.thighs ? parseFloat(formData.thighs) : undefined,
+        calves: formData.calves ? parseFloat(formData.calves) : undefined,
+        neck: formData.neck ? parseFloat(formData.neck) : undefined,
+        shoulders: formData.shoulders ? parseFloat(formData.shoulders) : undefined,
         bodyFat: formData.bodyFat ? parseFloat(formData.bodyFat) : undefined,
+        muscleMass: formData.muscleMass ? parseFloat(formData.muscleMass) : undefined,
       });
 
       toast({
@@ -58,7 +64,11 @@ export default function MeasurementsPage() {
         hips: "",
         biceps: "",
         thighs: "",
+        calves: "",
+        neck: "",
+        shoulders: "",
         bodyFat: "",
+        muscleMass: "",
       });
       setIsDialogOpen(false);
     } catch (error) {
@@ -123,127 +133,226 @@ export default function MeasurementsPage() {
                   )}
                 </DialogDescription>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <Label htmlFor="weight">Peso (kg)</Label>
-                      {latestMeasurement?.weight && (
-                        <span className="text-xs text-muted-foreground">Último: {latestMeasurement.weight}kg</span>
-                      )}
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid gap-6 md:grid-cols-2">
+                  {/* Composición Corporal */}
+                  <div className="space-y-4">
+                    <h4 className="font-semibold text-sm text-primary flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4" /> Composición Corporal
+                    </h4>
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <Label htmlFor="weight">Peso (kg)</Label>
+                          {latestMeasurement?.weight && (
+                            <span className="text-xs text-muted-foreground">Último: {latestMeasurement.weight}kg</span>
+                          )}
+                        </div>
+                        <Input
+                          id="weight"
+                          type="number"
+                          step="0.1"
+                          value={formData.weight}
+                          onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
+                          placeholder="70.5"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <Label htmlFor="bodyFat">Grasa Corporal (%)</Label>
+                          {latestMeasurement?.bodyFat && (
+                            <span className="text-xs text-muted-foreground">Último: {latestMeasurement.bodyFat}%</span>
+                          )}
+                        </div>
+                        <Input
+                          id="bodyFat"
+                          type="number"
+                          step="0.1"
+                          value={formData.bodyFat}
+                          onChange={(e) => setFormData({ ...formData, bodyFat: e.target.value })}
+                          placeholder="15.5"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <Label htmlFor="muscleMass">Masa Muscular (kg)</Label>
+                          {latestMeasurement?.muscleMass && (
+                            <span className="text-xs text-muted-foreground">Último: {latestMeasurement.muscleMass}kg</span>
+                          )}
+                        </div>
+                        <Input
+                          id="muscleMass"
+                          type="number"
+                          step="0.1"
+                          value={formData.muscleMass}
+                          onChange={(e) => setFormData({ ...formData, muscleMass: e.target.value })}
+                          placeholder="55.0"
+                        />
+                      </div>
                     </div>
-                    <Input
-                      id="weight"
-                      type="number"
-                      step="0.1"
-                      value={formData.weight}
-                      onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
-                      placeholder="70.5"
-                    />
                   </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <Label htmlFor="bodyFat">Grasa Corporal (%)</Label>
-                      {latestMeasurement?.bodyFat && (
-                        <span className="text-xs text-muted-foreground">Último: {latestMeasurement.bodyFat}%</span>
-                      )}
+
+                  {/* Medidas Tronco */}
+                  <div className="space-y-4">
+                    <h4 className="font-semibold text-sm text-primary flex items-center gap-2">
+                      <Ruler className="h-4 w-4" /> Tronco y Cuello
+                    </h4>
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <Label htmlFor="neck">Cuello (cm)</Label>
+                          {latestMeasurement?.neck && (
+                            <span className="text-xs text-muted-foreground">Último: {latestMeasurement.neck}cm</span>
+                          )}
+                        </div>
+                        <Input
+                          id="neck"
+                          type="number"
+                          step="0.1"
+                          value={formData.neck}
+                          onChange={(e) => setFormData({ ...formData, neck: e.target.value })}
+                          placeholder="38.0"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <Label htmlFor="shoulders">Hombros (cm)</Label>
+                          {latestMeasurement?.shoulders && (
+                            <span className="text-xs text-muted-foreground">Último: {latestMeasurement.shoulders}cm</span>
+                          )}
+                        </div>
+                        <Input
+                          id="shoulders"
+                          type="number"
+                          step="0.1"
+                          value={formData.shoulders}
+                          onChange={(e) => setFormData({ ...formData, shoulders: e.target.value })}
+                          placeholder="115.0"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <Label htmlFor="chest">Pecho (cm)</Label>
+                          {latestMeasurement?.chest && (
+                            <span className="text-xs text-muted-foreground">Último: {latestMeasurement.chest}cm</span>
+                          )}
+                        </div>
+                        <Input
+                          id="chest"
+                          type="number"
+                          step="0.1"
+                          value={formData.chest}
+                          onChange={(e) => setFormData({ ...formData, chest: e.target.value })}
+                          placeholder="95.0"
+                        />
+                      </div>
                     </div>
-                    <Input
-                      id="bodyFat"
-                      type="number"
-                      step="0.1"
-                      value={formData.bodyFat}
-                      onChange={(e) => setFormData({ ...formData, bodyFat: e.target.value })}
-                      placeholder="15.5"
-                    />
                   </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <Label htmlFor="chest">Pecho (cm)</Label>
-                      {latestMeasurement?.chest && (
-                        <span className="text-xs text-muted-foreground">Último: {latestMeasurement.chest}cm</span>
-                      )}
+
+                  {/* Medidas Inferior */}
+                  <div className="space-y-4">
+                    <h4 className="font-semibold text-sm text-primary flex items-center gap-2">
+                      <TrendingDown className="h-4 w-4" /> Cintura y Cadera
+                    </h4>
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <Label htmlFor="waist">Cintura (cm)</Label>
+                          {latestMeasurement?.waist && (
+                            <span className="text-xs text-muted-foreground">Último: {latestMeasurement.waist}cm</span>
+                          )}
+                        </div>
+                        <Input
+                          id="waist"
+                          type="number"
+                          step="0.1"
+                          value={formData.waist}
+                          onChange={(e) => setFormData({ ...formData, waist: e.target.value })}
+                          placeholder="80.0"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <Label htmlFor="hips">Cadera (cm)</Label>
+                          {latestMeasurement?.hips && (
+                            <span className="text-xs text-muted-foreground">Último: {latestMeasurement.hips}cm</span>
+                          )}
+                        </div>
+                        <Input
+                          id="hips"
+                          type="number"
+                          step="0.1"
+                          value={formData.hips}
+                          onChange={(e) => setFormData({ ...formData, hips: e.target.value })}
+                          placeholder="95.0"
+                        />
+                      </div>
                     </div>
-                    <Input
-                      id="chest"
-                      type="number"
-                      step="0.1"
-                      value={formData.chest}
-                      onChange={(e) => setFormData({ ...formData, chest: e.target.value })}
-                      placeholder="95"
-                    />
                   </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <Label htmlFor="waist">Cintura (cm)</Label>
-                      {latestMeasurement?.waist && (
-                        <span className="text-xs text-muted-foreground">Último: {latestMeasurement.waist}cm</span>
-                      )}
+
+                  {/* Extremidades */}
+                  <div className="space-y-4">
+                    <h4 className="font-semibold text-sm text-primary flex items-center gap-2">
+                      <Ruler className="h-4 w-4" /> Extremidades
+                    </h4>
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <Label htmlFor="biceps">Bíceps (cm)</Label>
+                          {latestMeasurement?.biceps && (
+                            <span className="text-xs text-muted-foreground">Último: {latestMeasurement.biceps}cm</span>
+                          )}
+                        </div>
+                        <Input
+                          id="biceps"
+                          type="number"
+                          step="0.1"
+                          value={formData.biceps}
+                          onChange={(e) => setFormData({ ...formData, biceps: e.target.value })}
+                          placeholder="35.0"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <Label htmlFor="thighs">Muslos (cm)</Label>
+                          {latestMeasurement?.thighs && (
+                            <span className="text-xs text-muted-foreground">Último: {latestMeasurement.thighs}cm</span>
+                          )}
+                        </div>
+                        <Input
+                          id="thighs"
+                          type="number"
+                          step="0.1"
+                          value={formData.thighs}
+                          onChange={(e) => setFormData({ ...formData, thighs: e.target.value })}
+                          placeholder="55.0"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <Label htmlFor="calves">Pantorrillas (cm)</Label>
+                          {latestMeasurement?.calves && (
+                            <span className="text-xs text-muted-foreground">Último: {latestMeasurement.calves}cm</span>
+                          )}
+                        </div>
+                        <Input
+                          id="calves"
+                          type="number"
+                          step="0.1"
+                          value={formData.calves}
+                          onChange={(e) => setFormData({ ...formData, calves: e.target.value })}
+                          placeholder="38.0"
+                        />
+                      </div>
                     </div>
-                    <Input
-                      id="waist"
-                      type="number"
-                      step="0.1"
-                      value={formData.waist}
-                      onChange={(e) => setFormData({ ...formData, waist: e.target.value })}
-                      placeholder="80"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <Label htmlFor="hips">Cadera (cm)</Label>
-                      {latestMeasurement?.hips && (
-                        <span className="text-xs text-muted-foreground">Último: {latestMeasurement.hips}cm</span>
-                      )}
-                    </div>
-                    <Input
-                      id="hips"
-                      type="number"
-                      step="0.1"
-                      value={formData.hips}
-                      onChange={(e) => setFormData({ ...formData, hips: e.target.value })}
-                      placeholder="95"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <Label htmlFor="biceps">Bíceps (cm)</Label>
-                      {latestMeasurement?.biceps && (
-                        <span className="text-xs text-muted-foreground">Último: {latestMeasurement.biceps}cm</span>
-                      )}
-                    </div>
-                    <Input
-                      id="biceps"
-                      type="number"
-                      step="0.1"
-                      value={formData.biceps}
-                      onChange={(e) => setFormData({ ...formData, biceps: e.target.value })}
-                      placeholder="35"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <Label htmlFor="thighs">Muslos (cm)</Label>
-                      {latestMeasurement?.thighs && (
-                        <span className="text-xs text-muted-foreground">Último: {latestMeasurement.thighs}cm</span>
-                      )}
-                    </div>
-                    <Input
-                      id="thighs"
-                      type="number"
-                      step="0.1"
-                      value={formData.thighs}
-                      onChange={(e) => setFormData({ ...formData, thighs: e.target.value })}
-                      placeholder="55"
-                    />
                   </div>
                 </div>
-                <div className="flex justify-end gap-2">
+                <div className="flex justify-end gap-2 pt-4 border-t">
                   <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                     Cancelar
                   </Button>
-                  <Button type="submit" disabled={isSaving}>
-                    {isSaving ? "Guardando..." : "Guardar"}
+                  <Button type="submit" disabled={isSaving} className="bg-gradient-primary px-8">
+                    {isSaving ? "Guardando..." : "Guardar Medición"}
                   </Button>
                 </div>
               </form>
@@ -255,32 +364,38 @@ export default function MeasurementsPage() {
         {latestMeasurement && (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {[
-              { label: "Peso", value: latestMeasurement.weight, unit: "kg", key: "weight" },
-              { label: "Grasa", value: latestMeasurement.bodyFat, unit: "%", key: "bodyFat" },
-              { label: "Cintura", value: latestMeasurement.waist, unit: "cm", key: "waist" },
-              { label: "Pecho", value: latestMeasurement.chest, unit: "cm", key: "chest" },
+              { label: "Peso Corporal", value: latestMeasurement.weight, unit: "kg", key: "weight", icon: TrendingUp, color: "from-blue-500 to-indigo-600" },
+              { label: "Grasa Corporal", value: latestMeasurement.bodyFat, unit: "%", key: "bodyFat", icon: Ruler, color: "from-pink-500 to-rose-600" },
+              { label: "Masa Muscular", value: latestMeasurement.muscleMass, unit: "kg", key: "muscleMass", icon: Plus, color: "from-emerald-500 to-teal-600" },
+              { label: "Cintura", value: latestMeasurement.waist, unit: "cm", key: "waist", icon: Ruler, color: "from-amber-500 to-orange-600" },
             ].map((item) => {
               const change = getChange(
                 item.value,
                 previousMeasurement?.[item.key as keyof typeof previousMeasurement] as number
               );
               return (
-                <Card key={item.label}>
+                <Card key={item.label} className="overflow-hidden border-none shadow-lg">
+                  <div className={`h-1 bg-gradient-to-r ${item.color}`} />
                   <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-start justify-between">
                       <div>
-                        <p className="text-sm text-muted-foreground">{item.label}</p>
-                        <p className="text-2xl font-bold">
-                          {item.value ? `${item.value}${item.unit}` : "N/A"}
-                        </p>
+                        <p className="text-sm font-medium text-muted-foreground">{item.label}</p>
+                        <div className="flex items-baseline gap-1 mt-1">
+                          <p className="text-3xl font-bold tracking-tight">
+                            {item.value ? item.value : "N/A"}
+                          </p>
+                          <span className="text-sm font-medium text-muted-foreground">{item.unit}</span>
+                        </div>
                         {change !== null && (
-                          <p className={`text-sm flex items-center gap-1 ${change > 0 ? "text-red-500" : "text-green-500"}`}>
+                          <p className={`text-xs flex items-center gap-1 mt-2 font-semibold ${change > 0 ? "text-rose-500" : "text-emerald-500"}`}>
                             {change > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                            {Math.abs(change).toFixed(1)}{item.unit}
+                            {Math.abs(change).toFixed(1)}{item.unit} desde la última vez
                           </p>
                         )}
                       </div>
-                      <Ruler className="h-8 w-8 text-muted-foreground" />
+                      <div className={`p-2 rounded-xl bg-gradient-to-br ${item.color} bg-opacity-10`}>
+                        <item.icon className="h-6 w-6 text-white" />
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -290,47 +405,86 @@ export default function MeasurementsPage() {
         )}
 
         {/* Charts */}
-        {measurements.length > 1 && <BodyMeasurementsChart measurements={measurements} />}
+        {measurements.length > 1 && (
+          <div className="grid gap-6">
+            <BodyMeasurementsChart measurements={measurements} />
+          </div>
+        )}
 
         {/* Measurements History */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Historial de Mediciones</CardTitle>
-            <Button variant="outline" size="sm" onClick={() => loadMeasurements()}>
-              Actualizar
-            </Button>
+        <Card className="shadow-xl border-none">
+          <CardHeader className="border-b bg-muted/30">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-xl">Historial de Mediciones</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">Todas tus medidas registradas cronológicamente</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => loadMeasurements()} className="gap-2">
+                <Plus className="h-4 w-4" /> Refrescar
+              </Button>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             {measurements.length > 0 ? (
-              <div className="space-y-4">
+              <div className="divide-y">
                 {measurements.map((measurement) => (
                   <div
                     key={measurement.id}
-                    className="flex items-center justify-between p-4 rounded-lg border"
+                    className="p-6 hover:bg-muted/50 transition-colors group"
                   >
-                    <div className="flex-1">
-                      <p className="font-medium">{formatDate(measurement.date)}</p>
-                      <div className="flex gap-4 mt-2 text-sm text-muted-foreground">
-                        {measurement.weight && <span>Peso: {measurement.weight}kg</span>}
-                        {measurement.waist && <span>Cintura: {measurement.waist}cm</span>}
-                        {measurement.chest && <span>Pecho: {measurement.chest}cm</span>}
-                        {measurement.bodyFat && <span>Grasa: {measurement.bodyFat}%</span>}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="space-y-4 flex-1">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-full bg-primary/10">
+                            <Ruler className="h-4 w-4 text-primary" />
+                          </div>
+                          <p className="font-bold text-lg">{formatDate(measurement.date)}</p>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-y-4 gap-x-8">
+                          {[
+                            { label: "Peso", value: measurement.weight, unit: "kg" },
+                            { label: "Grasa", value: measurement.bodyFat, unit: "%" },
+                            { label: "Masa Muscular", value: measurement.muscleMass, unit: "kg" },
+                            { label: "Pecho", value: measurement.chest, unit: "cm" },
+                            { label: "Cintura", value: measurement.waist, unit: "cm" },
+                            { label: "Cadera", value: measurement.hips, unit: "cm" },
+                            { label: "Bíceps", value: measurement.biceps, unit: "cm" },
+                            { label: "Muslos", value: measurement.thighs, unit: "cm" },
+                            { label: "Cuello", value: measurement.neck, unit: "cm" },
+                            { label: "Hombros", value: measurement.shoulders, unit: "cm" },
+                            { label: "Pantorrillas", value: measurement.calves, unit: "cm" },
+                          ].filter(m => m.value != null).map((m) => (
+                            <div key={m.label} className="space-y-1">
+                              <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">{m.label}</p>
+                              <p className="text-sm font-semibold">{m.value}{m.unit}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(measurement.id)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDelete(measurement.id)}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12">
-                <Ruler className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">No hay mediciones registradas</p>
+              <div className="text-center py-20">
+                <div className="inline-flex p-4 rounded-full bg-muted mb-4">
+                  <Ruler className="h-10 w-10 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-semibold">Sin registros aún</h3>
+                <p className="text-muted-foreground max-w-xs mx-auto mt-2">
+                  Empieza a registrar tus medidas para ver tu progreso aquí.
+                </p>
               </div>
             )}
           </CardContent>
