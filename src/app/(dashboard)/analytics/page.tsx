@@ -12,7 +12,7 @@ export default function AnalyticsPage() {
   const { measurements } = useMeasurements();
   const { workoutLogs } = useWorkouts();
 
-  const weightData = measurements
+  const weightData = [...measurements]
     .slice(0, 30)
     .reverse()
     .map((m) => ({

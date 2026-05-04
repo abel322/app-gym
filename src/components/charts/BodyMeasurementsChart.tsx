@@ -30,7 +30,7 @@ export function BodyMeasurementsChart({ measurements }: BodyMeasurementsChartPro
 
   const selectedMetricData = metrics.find((m) => m.value === selectedMetric);
 
-  const chartData = measurements
+  const chartData = [...measurements]
     .filter((m) => m[selectedMetric as keyof BodyMeasurement] != null)
     .reverse()
     .map((m) => ({

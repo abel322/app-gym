@@ -51,7 +51,7 @@ export default function DashboardPage() {
     fetchStats();
   }, []);
 
-  const weightData = measurements
+  const weightData = [...measurements]
     .slice(0, 10)
     .reverse()
     .map((m) => ({
@@ -59,7 +59,7 @@ export default function DashboardPage() {
       value: m.weight || 0,
     }));
 
-  const waistData = measurements
+  const waistData = [...measurements]
     .slice(0, 10)
     .reverse()
     .map((m) => ({
@@ -67,7 +67,7 @@ export default function DashboardPage() {
       value: m.waist || 0,
     }));
 
-  const chestData = measurements
+  const chestData = [...measurements]
     .slice(0, 10)
     .reverse()
     .map((m) => ({

@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useMeasurements } from "@/hooks/useMeasurements";
 import { useToast } from "@/hooks/useToast";
-import { Edit, Plus, Ruler, Trash2, TrendingDown, TrendingUp } from "lucide-react";
+import { Pencil, Plus, Ruler, Trash2, TrendingDown, TrendingUp } from "lucide-react";
+import { BodyMeasurement } from "@/types";
 import { formatDate } from "@/lib/utils";
 import { BodyMeasurementsChart } from "@/components/charts/BodyMeasurementsChart";
 
@@ -95,7 +96,7 @@ export default function MeasurementsPage() {
     }
   };
 
-  const handleEdit = (measurement: any) => {
+  const handleEdit = (measurement: BodyMeasurement) => {
     setFormData({
       weight: measurement.weight?.toString() || "",
       chest: measurement.chest?.toString() || "",
@@ -511,7 +512,7 @@ export default function MeasurementsPage() {
                           onClick={() => handleEdit(measurement)}
                           className="opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary/10 hover:text-primary"
                         >
-                          <Edit className="h-4 w-4" />
+                          <Pencil className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"

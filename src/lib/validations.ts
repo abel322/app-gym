@@ -32,7 +32,10 @@ export const profileSchema = z.object({
 });
 
 export const measurementSchema = z.object({
-  date: z.coerce.date().default(() => new Date()),
+  date: z.preprocess((arg) => {
+    if (typeof arg === "string" || arg instanceof Date) return new Date(arg);
+    return arg;
+  }, z.date()).default(() => new Date()),
   weight: z.number().min(20).max(300).optional(),
   height: z.number().min(100).max(250).optional(),
   chest: z.number().min(20).max(200).optional(),
