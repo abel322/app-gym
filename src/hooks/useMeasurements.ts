@@ -9,6 +9,7 @@ export function useMeasurements() {
     error,
     fetchMeasurements,
     createMeasurement,
+    updateMeasurement,
     deleteMeasurement,
   } = useMeasurementsStore();
 
