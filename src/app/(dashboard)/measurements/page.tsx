@@ -9,14 +9,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useMeasurements } from "@/hooks/useMeasurements";
 import { useToast } from "@/hooks/useToast";
-import { Plus, Ruler, Trash2, TrendingDown, TrendingUp } from "lucide-react";
+import { Edit, Plus, Ruler, Trash2, TrendingDown, TrendingUp } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { BodyMeasurementsChart } from "@/components/charts/BodyMeasurementsChart";
 
 export default function MeasurementsPage() {
-  const { measurements, createMeasurement, deleteMeasurement, isLoading, loadMeasurements } = useMeasurements();
+  const { measurements, createMeasurement, updateMeasurement, deleteMeasurement, isLoading, loadMeasurements } = useMeasurements();
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
     weight: "",
@@ -37,25 +38,36 @@ export default function MeasurementsPage() {
     setIsSaving(true);
 
     try {
-      await createMeasurement({
-        date: new Date(),
-        weight: formData.weight ? parseFloat(formData.weight) : undefined,
-        chest: formData.chest ? parseFloat(formData.chest) : undefined,
-        waist: formData.waist ? parseFloat(formData.waist) : undefined,
-        hips: formData.hips ? parseFloat(formData.hips) : undefined,
-        biceps: formData.biceps ? parseFloat(formData.biceps) : undefined,
-        thighs: formData.thighs ? parseFloat(formData.thighs) : undefined,
-        calves: formData.calves ? parseFloat(formData.calves) : undefined,
-        neck: formData.neck ? parseFloat(formData.neck) : undefined,
-        shoulders: formData.shoulders ? parseFloat(formData.shoulders) : undefined,
-        bodyFat: formData.bodyFat ? parseFloat(formData.bodyFat) : undefined,
-        muscleMass: formData.muscleMass ? parseFloat(formData.muscleMass) : undefined,
-      });
+      const data = {
+        weight: formData.weight ? parseFloat(formData.weight) : null,
+        chest: formData.chest ? parseFloat(formData.chest) : null,
+        waist: formData.waist ? parseFloat(formData.waist) : null,
+        hips: formData.hips ? parseFloat(formData.hips) : null,
+        biceps: formData.biceps ? parseFloat(formData.biceps) : null,
+        thighs: formData.thighs ? parseFloat(formData.thighs) : null,
+        calves: formData.calves ? parseFloat(formData.calves) : null,
+        neck: formData.neck ? parseFloat(formData.neck) : null,
+        shoulders: formData.shoulders ? parseFloat(formData.shoulders) : null,
+        bodyFat: formData.bodyFat ? parseFloat(formData.bodyFat) : null,
+        muscleMass: formData.muscleMass ? parseFloat(formData.muscleMass) : null,
+      };
 
-      toast({
-        title: "¡Medición registrada!",
-        description: "Tu medición ha sido guardada exitosamente",
-      });
+      if (editingId) {
+        await updateMeasurement(editingId, data);
+        toast({
+          title: "¡Medición actualizada!",
+          description: "Tu medición ha sido actualizada exitosamente",
+        });
+      } else {
+        await createMeasurement({
+          ...data,
+          date: new Date(),
+        });
+        toast({
+          title: "¡Medición registrada!",
+          description: "Tu medición ha sido guardada exitosamente",
+        });
+      }
 
       setFormData({
         weight: "",
@@ -70,16 +82,35 @@ export default function MeasurementsPage() {
         bodyFat: "",
         muscleMass: "",
       });
+      setEditingId(null);
       setIsDialogOpen(false);
     } catch (error) {
       toast({
         title: "Error",
-        description: "No se pudo guardar la medición",
+        description: `No se pudo ${editingId ? "actualizar" : "guardar"} la medición`,
         variant: "destructive",
       });
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleEdit = (measurement: any) => {
+    setFormData({
+      weight: measurement.weight?.toString() || "",
+      chest: measurement.chest?.toString() || "",
+      waist: measurement.waist?.toString() || "",
+      hips: measurement.hips?.toString() || "",
+      biceps: measurement.biceps?.toString() || "",
+      thighs: measurement.thighs?.toString() || "",
+      calves: measurement.calves?.toString() || "",
+      neck: measurement.neck?.toString() || "",
+      shoulders: measurement.shoulders?.toString() || "",
+      bodyFat: measurement.bodyFat?.toString() || "",
+      muscleMass: measurement.muscleMass?.toString() || "",
+    });
+    setEditingId(measurement.id);
+    setIsDialogOpen(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -114,20 +145,31 @@ export default function MeasurementsPage() {
       <div className="space-y-6">
         {/* Add Measurement Button */}
         <div className="flex justify-end">
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+              setIsDialogOpen(open);
+              if (!open) {
+                setEditingId(null);
+                setFormData({
+                  weight: "", chest: "", waist: "", hips: "", biceps: "", thighs: "",
+                  calves: "", neck: "", shoulders: "", bodyFat: "", muscleMass: ""
+                });
+              }
+            }}>
             <DialogTrigger asChild>
-              <Button className="bg-gradient-primary">
+              <Button className="bg-gradient-primary shadow-lg hover:shadow-xl transition-all">
                 <Plus className="h-4 w-4 mr-2" />
                 Nueva Medición
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto border-none shadow-2xl">
               <DialogHeader>
-                <DialogTitle>Registrar Medición</DialogTitle>
-                <DialogDescription>
-                  Ingresa tus medidas corporales actuales.
-                  {latestMeasurement && (
-                    <span className="block mt-1 text-xs text-primary font-medium">
+                <DialogTitle className="text-2xl font-bold">
+                  {editingId ? "Editar Medición" : "Registrar Medición"}
+                </DialogTitle>
+                <DialogDescription className="text-base">
+                  {editingId ? "Modifica tus medidas corporales" : "Ingresa tus medidas corporales actuales."}
+                  {latestMeasurement && !editingId && (
+                    <span className="block mt-2 text-sm text-primary font-semibold bg-primary/5 p-2 rounded-lg border border-primary/10">
                       Última medición: {formatDate(latestMeasurement.date)}
                     </span>
                   )}
@@ -352,7 +394,7 @@ export default function MeasurementsPage() {
                     Cancelar
                   </Button>
                   <Button type="submit" disabled={isSaving} className="bg-gradient-primary px-8">
-                    {isSaving ? "Guardando..." : "Guardar Medición"}
+                    {isSaving ? "Guardando..." : editingId ? "Actualizar Medición" : "Guardar Medición"}
                   </Button>
                 </div>
               </form>
@@ -463,6 +505,14 @@ export default function MeasurementsPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEdit(measurement)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary/10 hover:text-primary"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"

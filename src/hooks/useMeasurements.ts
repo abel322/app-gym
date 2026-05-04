@@ -57,6 +57,7 @@ export function useMeasurements() {
     error,
     loadMeasurements,
     createMeasurement,
+    updateMeasurement,
     deleteMeasurement,
     getLatestMeasurement,
     getMeasurementHistory,

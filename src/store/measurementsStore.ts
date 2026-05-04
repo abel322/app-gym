@@ -11,6 +11,7 @@ interface MeasurementsState {
   setError: (error: string | null) => void;
   fetchMeasurements: (userId: string) => Promise<void>;
   createMeasurement: (data: Partial<BodyMeasurement>) => Promise<BodyMeasurement | null>;
+  updateMeasurement: (id: string, data: Partial<BodyMeasurement>) => Promise<BodyMeasurement | null>;
   deleteMeasurement: (id: string) => Promise<void>;
 }
 
@@ -49,6 +50,26 @@ export const useMeasurementsStore = create<MeasurementsState>((set, get) => ({
         isLoading: false,
       }));
       return measurement;
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
+      return null;
+    }
+  },
+  updateMeasurement: async (id, data) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await fetch(`/api/measurements/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error("Error al actualizar la medición");
+      const updated = await response.json();
+      set((state) => ({
+        measurements: state.measurements.map((m) => (m.id === id ? updated : m)),
+        isLoading: false,
+      }));
+      return updated;
     } catch (error) {
       set({ error: (error as Error).message, isLoading: false });
       return null;

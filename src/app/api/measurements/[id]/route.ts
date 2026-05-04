@@ -42,3 +42,46 @@ export async function DELETE(
     );
   }
 }
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    
+    // Verify ownership
+    const measurement = await prisma.bodyMeasurement.findUnique({
+      where: { id: params.id },
+    });
+
+    if (!measurement) {
+      return NextResponse.json(
+        { error: "Medición no encontrada" },
+        { status: 404 }
+      );
+    }
+
+    if (measurement.userId !== session.user.id) {
+      return NextResponse.json({ error: "Prohibido" }, { status: 403 });
+    }
+
+    const updatedMeasurement = await prisma.bodyMeasurement.update({
+      where: { id: params.id },
+      data: body,
+    });
+
+    return NextResponse.json(updatedMeasurement);
+  } catch (error) {
+    console.error("Update measurement error:", error);
+    return NextResponse.json(
+      { error: "Error al actualizar medición" },
+      { status: 500 }
+    );
+  }
+}
