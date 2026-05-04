@@ -3,6 +3,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dumbbell, Target, Zap } from "lucide-react";
 
+import { Gender, Goal } from "@/types";
+
 interface Exercise {
   name: string;
   muscleGroup: string;
@@ -13,8 +15,8 @@ interface Exercise {
 }
 
 interface ExerciseRecommendationsProps {
-  gender?: string;
-  goal?: string;
+  gender?: Gender | null;
+  goal?: Goal | null;
   level?: string;
 }
 
