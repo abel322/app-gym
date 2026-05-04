@@ -497,10 +497,10 @@ export default function MeasurementsPage() {
                             { label: "Cuello", value: measurement.neck, unit: "cm" },
                             { label: "Hombros", value: measurement.shoulders, unit: "cm" },
                             { label: "Pantorrillas", value: measurement.calves, unit: "cm" },
-                          ].filter(m => m.value != null).map((m) => (
+                          ].map((m) => (
                             <div key={m.label} className="space-y-1">
                               <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">{m.label}</p>
-                              <p className="text-sm font-semibold">{m.value}{m.unit}</p>
+                              <p className="text-sm font-semibold">{m.value != null ? `${m.value}${m.unit}` : "---"}</p>
                             </div>
                           ))}
                         </div>
@@ -510,7 +510,7 @@ export default function MeasurementsPage() {
                           variant="ghost"
                           size="icon"
                           onClick={() => handleEdit(measurement)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary/10 hover:text-primary"
+                          className="transition-opacity hover:bg-primary/10 hover:text-primary"
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
@@ -518,7 +518,7 @@ export default function MeasurementsPage() {
                           variant="ghost"
                           size="icon"
                           onClick={() => handleDelete(measurement.id)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive"
+                          className="transition-opacity hover:bg-destructive/10 hover:text-destructive"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
