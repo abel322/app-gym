@@ -113,13 +113,23 @@ export default function MeasurementsPage() {
               <DialogHeader>
                 <DialogTitle>Registrar Medición</DialogTitle>
                 <DialogDescription>
-                  Ingresa tus medidas corporales actuales
+                  Ingresa tus medidas corporales actuales.
+                  {latestMeasurement && (
+                    <span className="block mt-1 text-xs text-primary font-medium">
+                      Última medición: {formatDate(latestMeasurement.date)}
+                    </span>
+                  )}
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="weight">Peso (kg)</Label>
+                    <div className="flex justify-between items-center">
+                      <Label htmlFor="weight">Peso (kg)</Label>
+                      {latestMeasurement?.weight && (
+                        <span className="text-xs text-muted-foreground">Último: {latestMeasurement.weight}kg</span>
+                      )}
+                    </div>
                     <Input
                       id="weight"
                       type="number"
@@ -130,7 +140,12 @@ export default function MeasurementsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="bodyFat">Grasa Corporal (%)</Label>
+                    <div className="flex justify-between items-center">
+                      <Label htmlFor="bodyFat">Grasa Corporal (%)</Label>
+                      {latestMeasurement?.bodyFat && (
+                        <span className="text-xs text-muted-foreground">Último: {latestMeasurement.bodyFat}%</span>
+                      )}
+                    </div>
                     <Input
                       id="bodyFat"
                       type="number"
@@ -141,7 +156,12 @@ export default function MeasurementsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="chest">Pecho (cm)</Label>
+                    <div className="flex justify-between items-center">
+                      <Label htmlFor="chest">Pecho (cm)</Label>
+                      {latestMeasurement?.chest && (
+                        <span className="text-xs text-muted-foreground">Último: {latestMeasurement.chest}cm</span>
+                      )}
+                    </div>
                     <Input
                       id="chest"
                       type="number"
@@ -152,7 +172,12 @@ export default function MeasurementsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="waist">Cintura (cm)</Label>
+                    <div className="flex justify-between items-center">
+                      <Label htmlFor="waist">Cintura (cm)</Label>
+                      {latestMeasurement?.waist && (
+                        <span className="text-xs text-muted-foreground">Último: {latestMeasurement.waist}cm</span>
+                      )}
+                    </div>
                     <Input
                       id="waist"
                       type="number"
@@ -163,7 +188,12 @@ export default function MeasurementsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="hips">Cadera (cm)</Label>
+                    <div className="flex justify-between items-center">
+                      <Label htmlFor="hips">Cadera (cm)</Label>
+                      {latestMeasurement?.hips && (
+                        <span className="text-xs text-muted-foreground">Último: {latestMeasurement.hips}cm</span>
+                      )}
+                    </div>
                     <Input
                       id="hips"
                       type="number"
@@ -174,7 +204,12 @@ export default function MeasurementsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="biceps">Bíceps (cm)</Label>
+                    <div className="flex justify-between items-center">
+                      <Label htmlFor="biceps">Bíceps (cm)</Label>
+                      {latestMeasurement?.biceps && (
+                        <span className="text-xs text-muted-foreground">Último: {latestMeasurement.biceps}cm</span>
+                      )}
+                    </div>
                     <Input
                       id="biceps"
                       type="number"
@@ -185,7 +220,12 @@ export default function MeasurementsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="thighs">Muslos (cm)</Label>
+                    <div className="flex justify-between items-center">
+                      <Label htmlFor="thighs">Muslos (cm)</Label>
+                      {latestMeasurement?.thighs && (
+                        <span className="text-xs text-muted-foreground">Último: {latestMeasurement.thighs}cm</span>
+                      )}
+                    </div>
                     <Input
                       id="thighs"
                       type="number"
