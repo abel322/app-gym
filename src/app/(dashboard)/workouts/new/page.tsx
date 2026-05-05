@@ -18,6 +18,7 @@ interface Exercise {
   id: string;
   name: string;
   muscleGroup: string;
+  imageUrl?: string;
 }
 
 interface SetData {
@@ -48,6 +49,9 @@ export default function LogWorkoutPage() {
 
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [isLoadingExercises, setIsLoadingExercises] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedMuscle, setSelectedMuscle] = useState<string>("all");
   const [loggedExercises, setLoggedExercises] = useState<LoggedExercise[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isExerciseDialogOpen, setIsExerciseDialogOpen] = useState(false);
@@ -55,13 +59,23 @@ export default function LogWorkoutPage() {
 
   // Fetch exercises list
   useEffect(() => {
+    setIsLoadingExercises(true);
     fetch("/api/exercises")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setExercises(data);
       })
-      .catch((err) => console.error("Error fetching exercises", err));
+      .catch((err) => console.error("Error fetching exercises", err))
+      .finally(() => setIsLoadingExercises(false));
   }, []);
+
+  const filteredExercises = exercises.filter((ex) => {
+    const matchesSearch = ex.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesMuscle = selectedMuscle === "all" || ex.muscleGroup === selectedMuscle;
+    return matchesSearch && matchesMuscle;
+  });
+
+  const muscleGroups = Array.from(new Set(exercises.map((ex) => ex.muscleGroup))).sort();
 
   // Calculate surplus automatically
   useEffect(() => {
@@ -293,22 +307,65 @@ export default function LogWorkoutPage() {
               <DialogTitle>Seleccionar Ejercicio</DialogTitle>
               <DialogDescription>Elige un ejercicio para agregar a tu rutina actual.</DialogDescription>
             </DialogHeader>
-            <div className="grid gap-2 mt-4">
-              {exercises.map((ex) => (
+            <div className="flex flex-col gap-3 mt-4">
+              <Input 
+                placeholder="Buscar ejercicio por nombre..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <Select value={selectedMuscle} onValueChange={setSelectedMuscle}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Músculo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los músculos</SelectItem>
+                  {muscleGroups.map(m => (
+                    <SelectItem key={m} value={m} className="capitalize">{m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-2 mt-4 pr-2 pb-4">
+              {isLoadingExercises ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-4 p-3 border rounded-lg animate-pulse">
+                    <div className="h-12 w-12 bg-muted rounded-md"></div>
+                    <div className="space-y-2 flex-1">
+                      <div className="h-4 bg-muted rounded w-3/4"></div>
+                      <div className="h-3 bg-muted rounded w-1/4"></div>
+                    </div>
+                  </div>
+                ))
+              ) : filteredExercises.slice(0, 50).map((ex) => (
                 <Button 
                   key={ex.id} 
                   variant="outline" 
-                  className="justify-start text-left h-auto py-3"
+                  className="justify-start text-left h-auto py-3 relative overflow-hidden group"
                   onClick={() => addExercise(ex.id)}
                 >
-                  <div>
-                    <p className="font-semibold">{ex.name}</p>
-                    <p className="text-xs text-muted-foreground">{ex.muscleGroup}</p>
+                  <div className="flex items-center gap-4 w-full">
+                    {ex.imageUrl ? (
+                      <div className="h-12 w-12 rounded-md bg-white shrink-0 flex items-center justify-center border p-1">
+                        <img src={ex.imageUrl} alt={ex.name} className="h-full w-full object-contain" loading="lazy" />
+                      </div>
+                    ) : (
+                      <div className="h-12 w-12 rounded-md bg-muted flex items-center justify-center shrink-0">
+                        <Dumbbell className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="flex-1 truncate">
+                      <p className="font-semibold truncate">{ex.name}</p>
+                      <p className="text-xs text-muted-foreground capitalize">{ex.muscleGroup}</p>
+                    </div>
                   </div>
                 </Button>
               ))}
-              {exercises.length === 0 && (
-                <p className="text-center text-sm text-muted-foreground py-4">No hay ejercicios disponibles.</p>
+              {!isLoadingExercises && filteredExercises.length === 0 && (
+                <p className="text-center text-sm text-muted-foreground py-8">No se encontraron ejercicios.</p>
+              )}
+              {!isLoadingExercises && filteredExercises.length > 50 && (
+                <p className="text-center text-xs text-muted-foreground pt-4">Mostrando 50 de {filteredExercises.length} resultados. Usa los filtros.</p>
               )}
             </div>
           </DialogContent>
