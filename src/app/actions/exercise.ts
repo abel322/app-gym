@@ -45,8 +45,10 @@ export async function searchOrGenerateExercise(query: string) {
     
     // Búsqueda de URL de imagen real usando término específico
     const englishQuery = generateEnglishQuery(query);
+    const urlQuery = encodeURIComponent(englishQuery.replace(/ /g, ','));
     
-    let imageUrl = `https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&h=400&fit=crop&q=80&seed=${Date.now()}`; // Fallback base
+    // Fallback dinámico que siempre cambia basado en el nombre del ejercicio si Unsplash falla
+    let imageUrl = `https://loremflickr.com/800/800/fitness,${urlQuery}/all?lock=${Date.now()}`;
     
     try {
       // Llamada a Unsplash (usando source que redirige a una URL única de la foto real)
