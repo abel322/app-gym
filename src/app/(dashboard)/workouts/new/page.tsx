@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -347,8 +346,8 @@ export default function LogWorkoutPage() {
                 >
                   <div className="flex items-center gap-4 w-full">
                     {ex.imageUrl ? (
-                      <div className="h-12 w-12 rounded-md bg-white shrink-0 overflow-hidden border">
-                        <Image src={ex.imageUrl} alt={ex.name} width={48} height={48} className="h-full w-full object-cover" unoptimized />
+                      <div className="h-12 w-12 rounded-md bg-white shrink-0 overflow-hidden border flex items-center justify-center">
+                        <img src={ex.imageUrl} alt={ex.name} className="h-full w-full object-cover" loading="lazy" />
                       </div>
                     ) : (
                       <div className="h-12 w-12 rounded-md bg-muted flex items-center justify-center shrink-0">
