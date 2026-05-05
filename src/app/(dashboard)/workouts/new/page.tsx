@@ -12,7 +12,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { useUser } from "@/hooks/useUser";
 import { useMeasurements } from "@/hooks/useMeasurements";
 import { useToast } from "@/hooks/useToast";
-import { ArrowLeft, Save, Plus, Trash2, Flame, Calendar, Dumbbell } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Flame, Calendar, Dumbbell, Sparkles } from "lucide-react";
+import Image from "next/image";
+import { searchOrGenerateExercise } from "@/app/actions/exercise";
 
 interface Exercise {
   id: string;
@@ -41,6 +43,40 @@ const ACTIVITY_MULTIPLIERS = {
   EXTRA_ACTIVE: 1.9,
 };
 
+function ExerciseImage({ src, alt }: { src: string; alt: string }) {
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+
+  if (hasError) {
+    return (
+      <div className="h-12 w-12 rounded-md bg-muted flex items-center justify-center shrink-0">
+        <Dumbbell className="h-5 w-5 text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative h-12 w-12 rounded-md overflow-hidden bg-muted shrink-0 border flex items-center justify-center">
+      {isLoading && (
+        <div className="absolute inset-0 bg-gray-200 animate-pulse z-10" />
+      )}
+      <Image
+        src={src}
+        alt={alt}
+        width={200}
+        height={200}
+        quality={75}
+        className={`object-cover h-full w-full transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+        onLoad={() => setIsLoading(false)}
+        onError={() => {
+          setIsLoading(false);
+          setHasError(true);
+        }}
+      />
+    </div>
+  );
+}
+
 export default function LogWorkoutPage() {
   const router = useRouter();
   const { user } = useUser();
@@ -54,6 +90,7 @@ export default function LogWorkoutPage() {
   const [selectedMuscle, setSelectedMuscle] = useState<string>("all");
   const [loggedExercises, setLoggedExercises] = useState<LoggedExercise[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [isExerciseDialogOpen, setIsExerciseDialogOpen] = useState(false);
   const [surplusTarget, setSurplusTarget] = useState<number | null>(null);
 
@@ -109,6 +146,34 @@ export default function LogWorkoutPage() {
       },
     ]);
     setIsExerciseDialogOpen(false);
+  };
+
+  const handleAIGenerate = async () => {
+    if (!searchQuery) return;
+    setIsGenerating(true);
+    try {
+      const newEx = await searchOrGenerateExercise(searchQuery);
+      // Agregar a la lista de ejercicios si no está
+      if (!exercises.find(e => e.id === newEx.id)) {
+        setExercises(prev => [...prev, newEx]);
+      }
+      
+      setLoggedExercises([
+        ...loggedExercises,
+        {
+          id: Math.random().toString(36).substr(2, 9),
+          exerciseId: newEx.id,
+          exerciseName: newEx.name,
+          sets: [{ reps: "", weight: "" }],
+        },
+      ]);
+      setIsExerciseDialogOpen(false);
+      toast({ title: "¡Ejercicio generado!", description: "Se ha añadido usando IA." });
+    } catch (error) {
+      toast({ title: "Error", description: "No se pudo generar el ejercicio con IA.", variant: "destructive" });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const removeExercise = (id: string) => {
@@ -346,9 +411,7 @@ export default function LogWorkoutPage() {
                 >
                   <div className="flex items-center gap-4 w-full">
                     {ex.imageUrl ? (
-                      <div className="h-12 w-12 rounded-md bg-white shrink-0 overflow-hidden border flex items-center justify-center">
-                        <img src={ex.imageUrl} alt={ex.name} className="h-full w-full object-cover" loading="lazy" />
-                      </div>
+                      <ExerciseImage src={ex.imageUrl} alt={ex.name} />
                     ) : (
                       <div className="h-12 w-12 rounded-md bg-muted flex items-center justify-center shrink-0">
                         <Dumbbell className="h-5 w-5 text-muted-foreground" />
@@ -362,7 +425,18 @@ export default function LogWorkoutPage() {
                 </Button>
               ))}
               {!isLoadingExercises && filteredExercises.length === 0 && (
-                <p className="text-center text-sm text-muted-foreground py-8">No se encontraron ejercicios.</p>
+                <div className="flex flex-col items-center justify-center py-8 space-y-4">
+                  <p className="text-center text-sm text-muted-foreground">No se encontraron ejercicios.</p>
+                  <Button 
+                    onClick={handleAIGenerate} 
+                    disabled={isGenerating || !searchQuery}
+                    variant="outline"
+                    className="border-primary/50 text-primary hover:bg-primary/5"
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    {isGenerating ? "Generando con IA..." : "Generar con IA (Buscador Inteligente)"}
+                  </Button>
+                </div>
               )}
               {!isLoadingExercises && filteredExercises.length > 50 && (
                 <p className="text-center text-xs text-muted-foreground pt-4">Mostrando 50 de {filteredExercises.length} resultados. Usa los filtros.</p>

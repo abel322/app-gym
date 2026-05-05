@@ -13,11 +13,11 @@ const nextConfig = {
         remotePatterns: [
             {
                 protocol: 'https',
-                hostname: 'edb-63323.hosting.com',
+                hostname: '**',
             },
             {
-                protocol: 'https',
-                hostname: 'v2.exercisedb.io',
+                protocol: 'http',
+                hostname: '**',
             },
         ],
     },

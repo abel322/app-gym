@@ -1,146 +1,112 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// ============================================================================
-// IMPORTANTE: COLOCA TU API KEY DE RAPIDAPI EN TU ARCHIVO .env
-// COMO: EXERCISE_DB_API_KEY="TU_CLAVE"
-// ============================================================================
-const RAPIDAPI_KEY = process.env.EXERCISE_DB_API_KEY;
+const muscleTranslations: Record<string, string> = {
+  'back': 'Espalda',
+  'cardio': 'Cardio',
+  'chest': 'Pecho',
+  'lower arms': 'Antebrazos',
+  'lower legs': 'Pantorrillas',
+  'neck': 'Cuello',
+  'shoulders': 'Hombros',
+  'upper arms': 'Brazos',
+  'upper legs': 'Piernas',
+  'waist': 'Cintura/Core'
+};
+
+const commonTerms: Record<string, string> = {
+  'Barbell': 'Barra',
+  'Dumbbell': 'Mancuerna',
+  'Cable': 'Polea',
+  'Machine': 'Máquina',
+  'Assisted': 'Asistido',
+  'Band': 'Banda',
+  'Press': 'Empuje',
+  'Squat': 'Sentadilla',
+  'Curl': 'Curl',
+  'Extension': 'Extensión',
+  'Fly': 'Apertura'
+};
 
 async function main() {
-  console.log("Iniciando seed de base de datos...");
-  
-  // Limpieza Total
-  console.log("Limpiando tabla de ejercicios para nueva carga...");
+  console.log("🚀 Iniciando sembrado de base de datos...");
+  console.log("🧹 Limpiando la base de datos...");
   await prisma.exercise.deleteMany({});
+  
+  const apiKey = process.env.EXERCISE_DB_API_KEY;
 
-  if (!RAPIDAPI_KEY) {
-    console.warn("⚠️ Advertencia: No has configurado tu EXERCISE_DB_API_KEY en el .env.");
-    console.log("Por favor añade tu clave para importar los +1300 ejercicios.");
-    return;
+  if (!apiKey) {
+    throw new Error("❌ No se encontró EXERCISE_DB_API_KEY en el archivo .env");
   }
 
-  try {
-    console.log("Descargando biblioteca masiva desde ExerciseDB...");
-
-    // Verificación de Headers (Debug)
-    const headers = {
-      "x-rapidapi-key": RAPIDAPI_KEY,
-      "x-rapidapi-host": "exercisedb.p.rapidapi.com",
-    };
-    
-    console.log("Headers enviados:", {
-      ...headers,
-      "x-rapidapi-key": headers["x-rapidapi-key"]?.substring(0, 5) + "..." // Mascarada por seguridad
+  const apiExercises = [];
+  let offset = 0;
+  const limit = 10;
+  
+  while (true) {
+    console.log(`Descargando bloque de ExerciseDB con offset=${offset}...`);
+    const response = await fetch(`https://exercisedb.p.rapidapi.com/exercises?limit=${limit}&offset=${offset}`, {
+      headers: {
+        'x-rapidapi-key': apiKey,
+        'x-rapidapi-host': 'exercisedb.p.rapidapi.com'
+      }
     });
 
-    const apiExercises = [];
-    let offset = 0;
-    const limit = 10; // Forzar bloques pequeños para probar paginación activa
+    if (!response.ok) {
+      console.error(`❌ Error en la petición: ${response.statusText}`);
+      break;
+    }
+
+    const data = await response.json();
+    if (!Array.isArray(data) || data.length === 0) break;
+
+    apiExercises.push(...data);
+    if (data.length < limit) break;
+    offset += data.length;
     
-    while (true) {
-      console.log(`Llamando a ExerciseDB con offset=${offset}...`);
-      const response = await fetch(`https://exercisedb.p.rapidapi.com/exercises?limit=${limit}&offset=${offset}`, {
-        method: "GET",
-        headers,
-      });
+    if (apiExercises.length > 2000) break;
 
-      if (!response.ok) {
-        console.error(`Error en la petición: ${response.status} ${response.statusText}`);
-        break;
-      }
-
-      const data = await response.json();
-      if (!Array.isArray(data) || data.length === 0) {
-        console.log("No se recibieron más ejercicios o la respuesta no es un array.");
-        break;
-      }
-
-      apiExercises.push(...data);
-      console.log(`Progreso: ${apiExercises.length} ejercicios obtenidos hasta ahora.`);
-
-      // Si recibimos menos de lo que pedimos, es que ya no hay más
-      if (data.length < limit) break;
-      
-      offset += data.length;
-      
-      // Seguridad: No entrar en bucle infinito si algo va mal
-      if (apiExercises.length > 2000) break;
-    }
-
-    console.log(`Total final detectado: ${apiExercises.length} ejercicios.`);
-
-    // Para evitar duplicados y errores (ya que 'name' puede no ser @unique en schema),
-    // obtenemos los nombres que ya existen en la base de datos Neon.
-    const existing = await prisma.exercise.findMany({ select: { name: true } });
-    const existingNames = new Set(existing.map((e) => e.name.toLowerCase()));
-
-    const newExercises = [];
-
-    const muscleGroupMap: Record<string, string> = {
-      'back': 'Espalda',
-      'cardio': 'Cardio',
-      'chest': 'Pecho',
-      'lower arms': 'Antebrazos',
-      'lower legs': 'Pantorrillas',
-      'neck': 'Cuello',
-      'shoulders': 'Hombros',
-      'upper arms': 'Brazos',
-      'upper legs': 'Piernas',
-      'waist': 'Cintura/Core'
-    };
-
-    for (const ex of apiExercises) {
-      const nameLower = ex.name.toLowerCase();
-
-      if (!existingNames.has(nameLower)) {
-        // Capitalizar el nombre para mejor presentación
-        const capitalizedName = ex.name.charAt(0).toUpperCase() + ex.name.slice(1);
-        
-        // Traducción básica de nombre
-        const translatedName = capitalizedName
-          .replace(/Barbell/ig, 'Barra')
-          .replace(/Dumbbell/ig, 'Mancuerna')
-          .replace(/Assisted/ig, 'Asistido')
-          .replace(/Band/ig, 'Banda')
-          .replace(/Cable/ig, 'Polea')
-          .replace(/Smith/ig, 'Máquina Smith')
-          .replace(/Machine/ig, 'Máquina')
-          .replace(/Press/ig, 'Empuje')
-          .replace(/Fly/ig, 'Apertura');
-
-        // Mapeo de campos solicitado con traducción de músculo
-        newExercises.push({
-          name: translatedName,
-          muscleGroup: muscleGroupMap[ex.bodyPart.toLowerCase()] || ex.bodyPart, // Traducción o fallback
-          equipment: ex.equipment,  // equipment -> equipment
-          imageUrl: ex.gifUrl,      // gifUrl -> imageUrl
-          description: `Objetivo: ${ex.target}`,
-        });
-
-        // Agregar al set para evitar duplicados en la misma respuesta de la API
-        existingNames.add(nameLower);
-      }
-    }
-
-    if (newExercises.length > 0) {
-      console.log(`Insertando ${newExercises.length} nuevos ejercicios en Neon DB...`);
-
-      // Usamos createMany para optimizar la inserción masiva en Postgres (Neon)
-      await prisma.exercise.createMany({
-        data: newExercises,
-        skipDuplicates: true,
-      });
-
-      console.log("¡Sincronización masiva completada con éxito!");
-    } else {
-      console.log("La base de datos ya está actualizada. No hay ejercicios nuevos.");
-    }
-
-  } catch (error) {
-    console.error("Error durante el proceso de Seed:", error);
+    // Esperar 800ms para evitar el Rate Limit (Too Many Requests) de RapidAPI
+    await new Promise(resolve => setTimeout(resolve, 800));
   }
+
+  console.log(`📦 Recibidos ${apiExercises.length} ejercicios de la API.`);
+
+  const seenNames = new Set();
+  const exercises = [];
+
+  for (const ex of apiExercises) {
+    let translatedName = ex.name;
+    Object.entries(commonTerms).forEach(([eng, esp]) => {
+      translatedName = translatedName.replace(new RegExp(eng, 'gi'), esp);
+    });
+
+    const finalName = translatedName.charAt(0).toUpperCase() + translatedName.slice(1);
+    const nameLower = finalName.toLowerCase();
+
+    if (!seenNames.has(nameLower)) {
+      seenNames.add(nameLower);
+      exercises.push({
+        name: finalName,
+        description: `Ejercicio para ${muscleTranslations[ex.bodyPart] || ex.bodyPart} usando ${ex.equipment}.`,
+        muscleGroup: muscleTranslations[ex.bodyPart] || ex.bodyPart,
+        equipment: ex.equipment,
+        // ExerciseDB ya no devuelve gifUrl, hay que construir la URL del endpoint de imágenes:
+        imageUrl: ex.gifUrl || `https://exercisedb.p.rapidapi.com/image?exerciseId=${ex.id}&resolution=180&rapidapi-key=${apiKey}`,
+      });
+    }
+  }
+
+  console.log("Ejemplo de primer ejercicio:", exercises[0]);
+
+  // Insertar en Neon (Usamos createMany para que sea veloz)
+  await prisma.exercise.createMany({
+    data: exercises,
+    skipDuplicates: true,
+  });
+
+  console.log("✅ ¡Base de datos de Neon poblada con éxito!");
 }
 
 main()
