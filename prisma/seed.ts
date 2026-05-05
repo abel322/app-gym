@@ -102,9 +102,13 @@ async function main() {
         const translatedName = capitalizedName
           .replace(/Barbell/ig, 'Barra')
           .replace(/Dumbbell/ig, 'Mancuerna')
+          .replace(/Assisted/ig, 'Asistido')
+          .replace(/Band/ig, 'Banda')
           .replace(/Cable/ig, 'Polea')
           .replace(/Smith/ig, 'Máquina Smith')
-          .replace(/Band/ig, 'Banda Elástica');
+          .replace(/Machine/ig, 'Máquina')
+          .replace(/Press/ig, 'Empuje')
+          .replace(/Fly/ig, 'Apertura');
 
         // Mapeo de campos solicitado con traducción de músculo
         newExercises.push({
