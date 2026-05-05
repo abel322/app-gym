@@ -23,19 +23,48 @@ export async function searchOrGenerateExercise(query: string) {
     }
 
     // 2. Si no existe, "Generar con IA" y buscar imagen
-    // Aquí simularemos la llamada a una IA o usaremos un endpoint real de IA que tengas configurado.
-    // Como no tenemos una API Key de OpenAI/Gemini expuesta, hacemos el placeholder estructurado
-    // para la integración real.
-    
+    // Diccionario simple para la traducción de términos al inglés (simulando IA)
+    const generateEnglishQuery = (text: string): string => {
+      const dictionary: Record<string, string> = {
+        sentadilla: "squat", sentadillas: "squats", tripse: "triceps", triceps: "triceps",
+        mancuerna: "dumbbell", mancuernas: "dumbbells", barra: "barbell", pecho: "chest",
+        espalda: "back", hombros: "shoulders", hombro: "shoulder", piernas: "legs",
+        pierna: "leg", biceps: "biceps", bicep: "bicep", flexiones: "push up",
+        dominadas: "pull up", peso: "weight", muerto: "deadlift"
+      };
+      let translated = text.toLowerCase();
+      for (const [es, en] of Object.entries(dictionary)) {
+        translated = translated.replace(new RegExp(`\\b${es}\\b`, 'g'), en);
+      }
+      return `${translated} correct technique form`;
+    };
+
     // Generación de nombre en español y descripción técnica
     const translatedName = query.charAt(0).toUpperCase() + query.slice(1) + " (Generado por IA)";
-    const technicalDescription = `Ejercicio enfocado en desarrollar fuerza y masa muscular. Técnica: Mantener la postura correcta, controlar la fase excéntrica y concéntrica.`;
+    const technicalDescription = `Ejercicio enfocado en desarrollar fuerza y masa muscular para ${query}. Técnica: Mantener la postura correcta y el control del movimiento en todo momento.`;
     
-    // Búsqueda de URL de imagen real (usando un servicio público de imágenes como Unsplash Source o un placeholder de fitness)
-    // Usaremos un identificador único para evitar caché
-    const randomSeed = Math.floor(Math.random() * 1000);
-    const imageUrl = `https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=200&h=200&fit=crop&q=80&seed=${randomSeed}`;
+    // Búsqueda de URL de imagen real usando término específico
+    const englishQuery = generateEnglishQuery(query);
     
+    let imageUrl = `https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&h=400&fit=crop&q=80&seed=${Date.now()}`; // Fallback base
+    
+    try {
+      // Llamada a Unsplash (usando source que redirige a una URL única de la foto real)
+      const res = await fetch(`https://source.unsplash.com/featured/800x800/?workout,${encodeURIComponent(englishQuery)}`, {
+        redirect: "follow",
+        cache: "no-store",
+      });
+      
+      if (res.ok && res.url && !res.url.includes("source.unsplash.com")) {
+        imageUrl = res.url; // Obtenemos la URL real persistente de Unsplash
+      }
+    } catch (err) {
+      console.error("Error obteniendo imagen desde Unsplash:", err);
+    }
+
+    // Log de Depuración solicitado
+    console.log("Consulta de imagen para:", translatedName, "-> Consulta de imagen:", englishQuery, "-> URL encontrada:", imageUrl);
+
     // Determinar grupo muscular (simplificado, IA real lo clasificaría)
     const muscleGroup = "full body";
 
