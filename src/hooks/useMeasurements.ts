@@ -13,13 +13,13 @@ export function useMeasurements() {
     deleteMeasurement,
   } = useMeasurementsStore();
 
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
 
   const loadMeasurements = useCallback(async () => {
-    if (session?.user?.id) {
-      await fetchMeasurements(session.user.id);
+    if (status === "authenticated") {
+      await fetchMeasurements();
     }
-  }, [session?.user?.id, fetchMeasurements]);
+  }, [status, fetchMeasurements]);
 
   useEffect(() => {
     if (session?.user?.id) {

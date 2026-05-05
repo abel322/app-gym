@@ -9,7 +9,7 @@ interface MeasurementsState {
   addMeasurement: (measurement: BodyMeasurement) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
-  fetchMeasurements: (userId: string) => Promise<void>;
+  fetchMeasurements: () => Promise<void>;
   createMeasurement: (data: Partial<BodyMeasurement>) => Promise<BodyMeasurement | null>;
   updateMeasurement: (id: string, data: Partial<BodyMeasurement>) => Promise<BodyMeasurement | null>;
   deleteMeasurement: (id: string) => Promise<void>;
@@ -24,10 +24,10 @@ export const useMeasurementsStore = create<MeasurementsState>((set, get) => ({
     set((state) => ({ measurements: [measurement, ...state.measurements] })),
   setLoading: (isLoading) => set({ isLoading }),
   setError: (error) => set({ error }),
-  fetchMeasurements: async (userId: string) => {
+  fetchMeasurements: async () => {
     set({ isLoading: true, error: null });
     try {
-      const response = await fetch(`/api/measurements?userId=${userId}`);
+      const response = await fetch(`/api/measurements?t=${Date.now()}`);
       if (!response.ok) throw new Error("Error al obtener las mediciones");
       const data = await response.json();
       set({ measurements: data, isLoading: false });

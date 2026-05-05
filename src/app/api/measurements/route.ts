@@ -11,13 +11,6 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("userId");
-
-    if (userId !== session.user.id) {
-      return NextResponse.json({ error: "Prohibido" }, { status: 403 });
-    }
-
     const measurements = await prisma.bodyMeasurement.findMany({
       where: { userId: session.user.id },
       orderBy: { date: "desc" },
