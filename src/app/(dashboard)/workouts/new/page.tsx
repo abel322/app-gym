@@ -8,11 +8,29 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useWorkouts } from "@/hooks/useWorkouts";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { useUser } from "@/hooks/useUser";
 import { useMeasurements } from "@/hooks/useMeasurements";
 import { useToast } from "@/hooks/useToast";
-import { Calculator, Dumbbell, ArrowLeft, Save, TrendingUp, Flame } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Flame, Calendar, Dumbbell } from "lucide-react";
+
+interface Exercise {
+  id: string;
+  name: string;
+  muscleGroup: string;
+}
+
+interface SetData {
+  reps: string;
+  weight: string;
+}
+
+interface LoggedExercise {
+  id: string; // unique ID for the UI
+  exerciseId: string;
+  exerciseName: string;
+  sets: SetData[];
+}
 
 const ACTIVITY_MULTIPLIERS = {
   SEDENTARY: 1.2,
@@ -22,125 +40,138 @@ const ACTIVITY_MULTIPLIERS = {
   EXTRA_ACTIVE: 1.9,
 };
 
-export default function NewWorkoutPage() {
+export default function LogWorkoutPage() {
   const router = useRouter();
-  const { createWorkout } = useWorkouts();
   const { user } = useUser();
   const { getLatestMeasurement } = useMeasurements();
   const { toast } = useToast();
 
+  const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [loggedExercises, setLoggedExercises] = useState<LoggedExercise[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [isExerciseDialogOpen, setIsExerciseDialogOpen] = useState(false);
+  const [surplusTarget, setSurplusTarget] = useState<number | null>(null);
 
-  // Workout form state
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    difficulty: "BEGINNER",
-    duration: "",
-  });
-
-  // Calculator state
-  const latestMeasurement = getLatestMeasurement();
-  
-  const [dataSource, setDataSource] = useState<"manual" | "profile">("manual");
-  
-  const [calcData, setCalcData] = useState({
-    weight: "",
-    height: "",
-    age: "",
-    gender: "MALE",
-    activityLevel: "SEDENTARY",
-  });
-
-  const [tdee, setTdee] = useState<number | null>(null);
-  const [surplus, setSurplus] = useState<number | null>(null);
-
-  // Load profile data into calculator if available
-  const hasProfileData = Boolean(
-    user?.age || user?.gender || latestMeasurement?.weight || user?.weight || latestMeasurement?.height || user?.height
-  );
-
+  // Fetch exercises list
   useEffect(() => {
-    if (dataSource === "profile") {
-      setCalcData({
-        weight: latestMeasurement?.weight?.toString() || user?.weight?.toString() || "",
-        height: latestMeasurement?.height?.toString() || user?.height?.toString() || "",
-        age: user?.age?.toString() || "",
-        gender: user?.gender || "MALE",
-        activityLevel: user?.activityLevel || "SEDENTARY",
-      });
-    }
-  }, [dataSource, user, latestMeasurement]);
+    fetch("/api/exercises")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) setExercises(data);
+      })
+      .catch((err) => console.error("Error fetching exercises", err));
+  }, []);
 
-  // Handle calculator data source change
-  const handleDataSourceChange = (value: "manual" | "profile") => {
-    setDataSource(value);
-    if (value === "manual") {
-      setCalcData({
-        weight: "",
-        height: "",
-        age: "",
-        gender: "MALE",
-        activityLevel: "SEDENTARY",
-      });
-      setTdee(null);
-      setSurplus(null);
+  // Calculate surplus automatically
+  useEffect(() => {
+    const latestMeasurement = getLatestMeasurement();
+    const weight = latestMeasurement?.weight || user?.weight;
+    const height = latestMeasurement?.height || user?.height;
+    const age = user?.age;
+    const gender = user?.gender;
+    const activity = user?.activityLevel || "SEDENTARY";
+
+    if (weight && height && age && gender) {
+      let bmr = 10 * weight + 6.25 * height - 5 * age;
+      bmr += gender === "MALE" ? 5 : -161;
+      const multiplier = ACTIVITY_MULTIPLIERS[activity as keyof typeof ACTIVITY_MULTIPLIERS] || 1.2;
+      const tdee = bmr * multiplier;
+      setSurplusTarget(Math.round(tdee * 1.10));
     }
+  }, [user, getLatestMeasurement]);
+
+  const addExercise = (exerciseId: string) => {
+    const ex = exercises.find((e) => e.id === exerciseId);
+    if (!ex) return;
+    
+    setLoggedExercises([
+      ...loggedExercises,
+      {
+        id: Math.random().toString(36).substr(2, 9),
+        exerciseId,
+        exerciseName: ex.name,
+        sets: [{ reps: "", weight: "" }],
+      },
+    ]);
+    setIsExerciseDialogOpen(false);
   };
 
-  // Calculate TDEE and Surplus
-  const calculateTDEE = () => {
-    const weight = parseFloat(calcData.weight);
-    const height = parseFloat(calcData.height);
-    const age = parseInt(calcData.age);
+  const removeExercise = (id: string) => {
+    setLoggedExercises(loggedExercises.filter((e) => e.id !== id));
+  };
 
-    if (isNaN(weight) || isNaN(height) || isNaN(age)) {
-      toast({
-        title: "Faltan datos",
-        description: "Por favor completa el peso, altura y edad para calcular.",
-        variant: "destructive",
-      });
+  const addSet = (exerciseId: string) => {
+    setLoggedExercises(
+      loggedExercises.map((e) => {
+        if (e.id === exerciseId) {
+          // Copy last set values for convenience
+          const lastSet = e.sets[e.sets.length - 1];
+          return { ...e, sets: [...e.sets, { reps: lastSet?.reps || "", weight: lastSet?.weight || "" }] };
+        }
+        return e;
+      })
+    );
+  };
+
+  const removeSet = (exerciseId: string, setIndex: number) => {
+    setLoggedExercises(
+      loggedExercises.map((e) => {
+        if (e.id === exerciseId) {
+          const newSets = [...e.sets];
+          newSets.splice(setIndex, 1);
+          return { ...e, sets: newSets };
+        }
+        return e;
+      })
+    );
+  };
+
+  const updateSet = (exerciseId: string, setIndex: number, field: keyof SetData, value: string) => {
+    setLoggedExercises(
+      loggedExercises.map((e) => {
+        if (e.id === exerciseId) {
+          const newSets = [...e.sets];
+          newSets[setIndex][field] = value;
+          return { ...e, sets: newSets };
+        }
+        return e;
+      })
+    );
+  };
+
+  const handleSave = async () => {
+    if (loggedExercises.length === 0) {
+      toast({ title: "Entrenamiento vacío", description: "Agrega al menos un ejercicio.", variant: "destructive" });
       return;
     }
 
-    // Mifflin-St Jeor Formula
-    let bmr = 10 * weight + 6.25 * height - 5 * age;
-    if (calcData.gender === "MALE") {
-      bmr += 5;
-    } else {
-      bmr -= 161;
-    }
-
-    const multiplier = ACTIVITY_MULTIPLIERS[calcData.activityLevel as keyof typeof ACTIVITY_MULTIPLIERS] || 1.2;
-    const currentTdee = bmr * multiplier;
-    
-    setTdee(Math.round(currentTdee));
-    // Superávit del 10%
-    setSurplus(Math.round(currentTdee * 1.10));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
     setIsSaving(true);
-
     try {
-      await createWorkout({
-        name: formData.name,
-        description: formData.description,
-        difficulty: formData.difficulty as "BEGINNER" | "INTERMEDIATE" | "ADVANCED",
-        duration: formData.duration ? parseInt(formData.duration) : undefined,
+      const response = await fetch("/api/workouts/log-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: `Entrenamiento - ${date}`,
+          date: new Date(date).toISOString(),
+          exercises: loggedExercises.map((ex) => ({
+            exerciseId: ex.exerciseId,
+            sets: ex.sets.map((s) => ({ reps: s.reps, weight: s.weight })),
+          })),
+        }),
       });
+
+      if (!response.ok) throw new Error("Fallo al guardar");
 
       toast({
-        title: "¡Entrenamiento creado!",
-        description: "Tu rutina se ha guardado exitosamente.",
+        title: "¡Entrenamiento Finalizado!",
+        description: "Tu sesión ha sido registrada correctamente.",
       });
-
       router.push("/workouts");
     } catch (error) {
       toast({
         title: "Error",
-        description: "No se pudo crear el entrenamiento.",
+        description: "Ocurrió un problema al guardar el entrenamiento.",
         variant: "destructive",
       });
     } finally {
@@ -150,238 +181,151 @@ export default function NewWorkoutPage() {
 
   return (
     <DashboardLayout
-      title="Nuevo Entrenamiento"
-      description="Crea una nueva rutina y planifica tu superávit"
+      title="Registrar Entrenamiento"
+      description="Anota tus ejercicios, series y repeticiones de hoy"
     >
-      <div className="space-y-6">
+      <div className="space-y-6 pb-20">
+        
+        {/* Header Actions */}
         <div className="flex justify-between items-center">
-          <Button
-            variant="ghost"
-            onClick={() => router.push("/workouts")}
-            className="flex items-center gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Volver
+          <Button variant="ghost" onClick={() => router.push("/workouts")} className="gap-2">
+            <ArrowLeft className="h-4 w-4" /> Volver
           </Button>
+          
+          <div className="flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-muted-foreground" />
+            <Input 
+              type="date" 
+              value={date} 
+              onChange={(e) => setDate(e.target.value)} 
+              className="w-40"
+            />
+          </div>
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-2">
-          {/* Workout Form */}
-          <Card className="shadow-lg border-none">
-            <CardHeader className="bg-muted/30 border-b">
-              <div className="flex items-center gap-2">
-                <div className="p-2 bg-primary/10 rounded-lg">
+        {/* Info Banner (Surplus) */}
+        {surplusTarget && (
+          <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-4 flex items-center justify-between shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-orange-500/20 rounded-lg">
+                <Flame className="h-6 w-6 text-orange-600" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-orange-600">Objetivo Calórico (Hipertrofia)</p>
+                <p className="text-xs text-muted-foreground">Calculado según tu perfil</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-bold text-orange-600">{surplusTarget} kcal</p>
+            </div>
+          </div>
+        )}
+
+        {/* Exercises List */}
+        <div className="space-y-4">
+          {loggedExercises.map((logEx) => (
+            <Card key={logEx.id} className="shadow-md">
+              <CardHeader className="py-4 border-b bg-muted/20 flex flex-row items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
                   <Dumbbell className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <CardTitle className="text-xl">Detalles de la Rutina</CardTitle>
-                  <CardDescription>Configura los datos principales de tu entrenamiento.</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-6">
-              <form id="workout-form" onSubmit={handleSubmit} className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Nombre del Entrenamiento</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Ej. Día de Pecho y Tríceps"
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="description">Descripción (Opcional)</Label>
-                  <Input
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Breve descripción de la rutina"
-                  />
+                  {logEx.exerciseName}
+                </CardTitle>
+                <Button variant="ghost" size="icon" onClick={() => removeExercise(logEx.id)} className="text-destructive hover:bg-destructive/10 hover:text-destructive">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </CardHeader>
+              <CardContent className="p-4 space-y-3">
+                <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-muted-foreground px-2">
+                  <div className="col-span-2 text-center">Serie</div>
+                  <div className="col-span-4 text-center">Libras/Kg</div>
+                  <div className="col-span-4 text-center">Reps</div>
+                  <div className="col-span-2"></div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="difficulty">Dificultad</Label>
-                    <Select
-                      value={formData.difficulty}
-                      onValueChange={(value) => setFormData({ ...formData, difficulty: value })}
-                    >
-                      <SelectTrigger id="difficulty">
-                        <SelectValue placeholder="Selecciona" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="BEGINNER">Principiante</SelectItem>
-                        <SelectItem value="INTERMEDIATE">Intermedio</SelectItem>
-                        <SelectItem value="ADVANCED">Avanzado</SelectItem>
-                      </SelectContent>
-                    </Select>
+                {logEx.sets.map((set, idx) => (
+                  <div key={idx} className="grid grid-cols-12 gap-2 items-center">
+                    <div className="col-span-2 text-center font-bold text-sm bg-muted py-2 rounded-md">
+                      {idx + 1}
+                    </div>
+                    <div className="col-span-4">
+                      <Input 
+                        type="number" 
+                        placeholder="0" 
+                        value={set.weight} 
+                        onChange={(e) => updateSet(logEx.id, idx, "weight", e.target.value)}
+                        className="text-center"
+                      />
+                    </div>
+                    <div className="col-span-4">
+                      <Input 
+                        type="number" 
+                        placeholder="0" 
+                        value={set.reps} 
+                        onChange={(e) => updateSet(logEx.id, idx, "reps", e.target.value)}
+                        className="text-center"
+                      />
+                    </div>
+                    <div className="col-span-2 text-center">
+                      <Button variant="ghost" size="icon" onClick={() => removeSet(logEx.id, idx)} className="h-8 w-8 text-muted-foreground hover:text-destructive">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="duration">Duración (minutos)</Label>
-                    <Input
-                      id="duration"
-                      type="number"
-                      min="5"
-                      max="180"
-                      value={formData.duration}
-                      onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-                      placeholder="Ej. 60"
-                    />
-                  </div>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
+                ))}
 
-          {/* Surplus Calculator */}
-          <Card className="shadow-lg border-none">
-            <CardHeader className="bg-muted/30 border-b">
-              <div className="flex items-center gap-2">
-                <div className="p-2 bg-orange-500/10 rounded-lg">
-                  <Flame className="h-5 w-5 text-orange-500" />
-                </div>
-                <div>
-                  <CardTitle className="text-xl">Superávit de Entrenamiento</CardTitle>
-                  <CardDescription>Calcula tus calorías para hipertrofia (+10%)</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-6 space-y-6">
-              
-              <div className="space-y-2">
-                <Label>Origen de Datos</Label>
-                <Select
-                  value={dataSource}
-                  onValueChange={(value: "manual" | "profile") => handleDataSourceChange(value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona origen de datos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="manual">Ingreso Manual</SelectItem>
-                    {hasProfileData && (
-                      <SelectItem value="profile">Usar mi última medición</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="calc-weight">Peso (kg)</Label>
-                  <Input
-                    id="calc-weight"
-                    type="number"
-                    step="0.1"
-                    value={calcData.weight}
-                    onChange={(e) => setCalcData({ ...calcData, weight: e.target.value })}
-                    disabled={dataSource === "profile"}
-                    placeholder="70"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="calc-height">Altura (cm)</Label>
-                  <Input
-                    id="calc-height"
-                    type="number"
-                    step="0.1"
-                    value={calcData.height}
-                    onChange={(e) => setCalcData({ ...calcData, height: e.target.value })}
-                    disabled={dataSource === "profile"}
-                    placeholder="175"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="calc-age">Edad</Label>
-                  <Input
-                    id="calc-age"
-                    type="number"
-                    value={calcData.age}
-                    onChange={(e) => setCalcData({ ...calcData, age: e.target.value })}
-                    disabled={dataSource === "profile"}
-                    placeholder="25"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="calc-gender">Género</Label>
-                  <Select
-                    value={calcData.gender}
-                    onValueChange={(value) => setCalcData({ ...calcData, gender: value })}
-                    disabled={dataSource === "profile"}
-                  >
-                    <SelectTrigger id="calc-gender">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="MALE">Hombre</SelectItem>
-                      <SelectItem value="FEMALE">Mujer</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="calc-activity">Nivel de Actividad Físico</Label>
-                <Select
-                  value={calcData.activityLevel}
-                  onValueChange={(value) => setCalcData({ ...calcData, activityLevel: value })}
-                  disabled={dataSource === "profile"}
-                >
-                  <SelectTrigger id="calc-activity">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="SEDENTARY">Sedentario (Poco o ningún ejercicio)</SelectItem>
-                    <SelectItem value="LIGHTLY_ACTIVE">Ligeramente Activo (1-3 días/semana)</SelectItem>
-                    <SelectItem value="MODERATELY_ACTIVE">Moderadamente Activo (3-5 días/semana)</SelectItem>
-                    <SelectItem value="VERY_ACTIVE">Muy Activo (6-7 días/semana)</SelectItem>
-                    <SelectItem value="EXTRA_ACTIVE">Extra Activo (Entrenamientos intensos)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Button 
-                onClick={calculateTDEE} 
-                className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/80"
-              >
-                <Calculator className="h-4 w-4 mr-2" />
-                Calcular Objetivos
-              </Button>
-
-              {tdee !== null && surplus !== null && (
-                <div className="mt-4 p-4 bg-orange-500/10 rounded-xl border border-orange-500/20 space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Mantenimiento (TDEE):</span>
-                    <span className="font-semibold text-lg">{tdee} kcal</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-semibold text-orange-500 flex items-center gap-1">
-                      <TrendingUp className="h-4 w-4" /> Objetivo Superávit (+10%):
-                    </span>
-                    <span className="font-bold text-2xl text-orange-500">{surplus} kcal</span>
-                  </div>
-                </div>
-              )}
-
-            </CardContent>
-          </Card>
+                <Button variant="secondary" size="sm" onClick={() => addSet(logEx.id)} className="w-full mt-2 border-dashed border-2 bg-transparent hover:bg-muted">
+                  <Plus className="h-4 w-4 mr-2" /> Añadir Serie
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
         </div>
 
-        <div className="flex justify-end pt-6 border-t">
+        {/* Add Exercise Button */}
+        <Dialog open={isExerciseDialogOpen} onOpenChange={setIsExerciseDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" className="w-full py-8 text-lg border-dashed border-2 border-primary/50 text-primary hover:bg-primary/5">
+              <Plus className="h-5 w-5 mr-2" /> Añadir Ejercicio
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Seleccionar Ejercicio</DialogTitle>
+              <DialogDescription>Elige un ejercicio para agregar a tu rutina actual.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-2 mt-4">
+              {exercises.map((ex) => (
+                <Button 
+                  key={ex.id} 
+                  variant="outline" 
+                  className="justify-start text-left h-auto py-3"
+                  onClick={() => addExercise(ex.id)}
+                >
+                  <div>
+                    <p className="font-semibold">{ex.name}</p>
+                    <p className="text-xs text-muted-foreground">{ex.muscleGroup}</p>
+                  </div>
+                </Button>
+              ))}
+              {exercises.length === 0 && (
+                <p className="text-center text-sm text-muted-foreground py-4">No hay ejercicios disponibles.</p>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Save Button */}
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t lg:pl-64 z-10 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
           <Button 
-            type="submit" 
-            form="workout-form" 
-            disabled={isSaving}
-            className="bg-gradient-primary px-8 text-lg py-6"
+            className="w-full max-w-4xl mx-auto block bg-gradient-primary text-lg py-6"
+            onClick={handleSave}
+            disabled={isSaving || loggedExercises.length === 0}
           >
-            <Save className="h-5 w-5 mr-2" />
-            {isSaving ? "Creando..." : "Crear Entrenamiento"}
+            <Save className="h-5 w-5 mr-2 inline-block" />
+            {isSaving ? "Guardando..." : "Finalizar Entrenamiento"}
           </Button>
         </div>
+
       </div>
     </DashboardLayout>
   );
