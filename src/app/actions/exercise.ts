@@ -46,7 +46,7 @@ export async function searchOrGenerateExercise(query: string) {
         name: translatedName,
         muscleGroup: muscleGroup,
         imageUrl: imageUrl,
-        // Si tienes campo description en tu schema, lo puedes añadir aquí
+        description: technicalDescription,
       },
     });
 

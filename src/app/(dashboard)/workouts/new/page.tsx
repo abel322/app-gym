@@ -21,6 +21,7 @@ interface Exercise {
   name: string;
   muscleGroup: string;
   imageUrl?: string;
+  description?: string;
 }
 
 interface SetData {
@@ -32,6 +33,8 @@ interface LoggedExercise {
   id: string; // unique ID for the UI
   exerciseId: string;
   exerciseName: string;
+  imageUrl?: string;
+  description?: string;
   sets: SetData[];
 }
 
@@ -43,20 +46,20 @@ const ACTIVITY_MULTIPLIERS = {
   EXTRA_ACTIVE: 1.9,
 };
 
-function ExerciseImage({ src, alt }: { src: string; alt: string }) {
+function ExerciseImage({ src, alt, className = "h-12 w-12" }: { src: string; alt: string; className?: string }) {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
   if (hasError) {
     return (
-      <div className="h-12 w-12 rounded-md bg-muted flex items-center justify-center shrink-0">
+      <div className={`rounded-md bg-muted flex items-center justify-center shrink-0 ${className}`}>
         <Dumbbell className="h-5 w-5 text-muted-foreground" />
       </div>
     );
   }
 
   return (
-    <div className="relative h-12 w-12 rounded-md overflow-hidden bg-muted shrink-0 border flex items-center justify-center">
+    <div className={`relative rounded-md overflow-hidden bg-muted shrink-0 border flex items-center justify-center ${className}`}>
       {isLoading && (
         <div className="absolute inset-0 bg-gray-200 animate-pulse z-10" />
       )}
@@ -142,6 +145,8 @@ export default function LogWorkoutPage() {
         id: Math.random().toString(36).substr(2, 9),
         exerciseId,
         exerciseName: ex.name,
+        imageUrl: ex.imageUrl,
+        description: ex.description,
         sets: [{ reps: "", weight: "" }],
       },
     ]);
@@ -164,6 +169,8 @@ export default function LogWorkoutPage() {
           id: Math.random().toString(36).substr(2, 9),
           exerciseId: newEx.id,
           exerciseName: newEx.name,
+          imageUrl: newEx.imageUrl,
+          description: newEx.description,
           sets: [{ reps: "", weight: "" }],
         },
       ]);
@@ -305,10 +312,23 @@ export default function LogWorkoutPage() {
           {loggedExercises.map((logEx) => (
             <Card key={logEx.id} className="shadow-md">
               <CardHeader className="py-4 border-b bg-muted/20 flex flex-row items-center justify-between">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Dumbbell className="h-5 w-5 text-primary" />
-                  {logEx.exerciseName}
-                </CardTitle>
+                <div className="flex items-center gap-3">
+                  {logEx.imageUrl ? (
+                    <ExerciseImage src={logEx.imageUrl} alt={logEx.exerciseName} className="h-16 w-16" />
+                  ) : (
+                    <div className="h-16 w-16 rounded-md bg-muted flex items-center justify-center shrink-0">
+                      <Dumbbell className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                  )}
+                  <div className="flex flex-col">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      {logEx.exerciseName}
+                    </CardTitle>
+                    {logEx.description && (
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{logEx.description}</p>
+                    )}
+                  </div>
+                </div>
                 <Button variant="ghost" size="icon" onClick={() => removeExercise(logEx.id)} className="text-destructive hover:bg-destructive/10 hover:text-destructive">
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -419,7 +439,11 @@ export default function LogWorkoutPage() {
                     )}
                     <div className="flex-1 truncate">
                       <p className="font-semibold truncate">{ex.name}</p>
-                      <p className="text-xs text-muted-foreground capitalize">{ex.muscleGroup}</p>
+                      {ex.description ? (
+                        <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{ex.description}</p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground capitalize mt-0.5">{ex.muscleGroup}</p>
+                      )}
                     </div>
                   </div>
                 </Button>
