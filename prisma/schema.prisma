@@ -121,6 +121,7 @@ model WorkoutExercise {
   reps       Int      @default(10)
   restSeconds Int     @default(60)
   weight     Float?
+  day        String?
 
   @@index([workoutId])
   @@index([exerciseId])
