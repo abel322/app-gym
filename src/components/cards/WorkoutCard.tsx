@@ -1,12 +1,14 @@
 "use client";
 
+import { useTransition } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Workout, DifficultyLevel } from "@/types";
-import { Dumbbell, Clock, Flame, ChevronRight, Play } from "lucide-react";
+import { Dumbbell, Clock, Flame, ChevronRight, Play, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { deleteWorkout } from "@/app/actions/workout";
 
 interface WorkoutCardProps {
   workout: Workout;
@@ -20,6 +22,21 @@ const difficultyColors: Record<DifficultyLevel, string> = {
 };
 
 export function WorkoutCard({ workout, className }: WorkoutCardProps) {
+  const [isPending, startTransition] = useTransition();
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (window.confirm("¿Estás seguro de que deseas eliminar este entrenamiento?")) {
+      startTransition(async () => {
+        try {
+          await deleteWorkout(workout.id);
+        } catch (error) {
+          console.error("Failed to delete workout:", error);
+        }
+      });
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -47,11 +64,22 @@ export function WorkoutCard({ workout, className }: WorkoutCardProps) {
                 </span>
               </div>
             </div>
-            <Link href={`/workouts/${workout.id}`}>
-              <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
-                <Play className="h-5 w-5" />
+            <div className="flex items-center gap-1">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"
+                onClick={handleDelete}
+                disabled={isPending}
+              >
+                <Trash2 className="h-5 w-5" />
               </Button>
-            </Link>
+              <Link href={`/workouts/${workout.id}`}>
+                <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Play className="h-5 w-5" />
+                </Button>
+              </Link>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
