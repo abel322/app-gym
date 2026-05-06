@@ -169,15 +169,15 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
   if (!plan) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center animate-in fade-in zoom-in duration-500">
-        <div className="w-24 h-24 bg-purple-100 rounded-full flex items-center justify-center mb-6 shadow-inner">
-          <Utensils className="h-12 w-12 text-purple-600" />
+        <div className="w-24 h-24 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center mb-6 shadow-inner">
+          <Utensils className="h-12 w-12 text-purple-600 dark:text-purple-400" />
         </div>
-        <h3 className="text-2xl font-bold mb-2 text-gray-800">No tienes un plan activo</h3>
-        <p className="text-muted-foreground mb-8 max-w-md text-gray-500">
+        <h3 className="text-2xl font-bold mb-2 text-gray-800 dark:text-slate-100">No tienes un plan activo</h3>
+        <p className="text-muted-foreground mb-8 max-w-md text-gray-500 dark:text-slate-400">
           Crea tu primer plan nutricional y organiza tus comidas para la semana. Enfócate en tu objetivo de manera estructurada.
         </p>
         <Button 
-          className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-200 transition-all px-8 py-6 rounded-xl text-lg font-medium"
+          className="bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 text-white shadow-lg shadow-purple-200 dark:shadow-none transition-all px-8 py-6 rounded-xl text-lg font-medium"
           onClick={() => setIsCreatePlanOpen(true)}
         >
           <Plus className="h-5 w-5 mr-2" />
@@ -186,9 +186,9 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
 
         {/* Create Plan Modal */}
         <Dialog open={isCreatePlanOpen} onOpenChange={setIsCreatePlanOpen}>
-          <DialogContent className="sm:max-w-[425px] border-purple-100 shadow-xl">
+          <DialogContent className="sm:max-w-[425px] border-purple-100 dark:border-white/10">
             <DialogHeader>
-              <DialogTitle className="text-2xl text-purple-900">Nuevo Plan</DialogTitle>
+              <DialogTitle className="text-2xl text-purple-900 dark:text-purple-100">Nuevo Plan</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
@@ -227,7 +227,7 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
               </div>
             </div>
             <DialogFooter>
-              <Button disabled={isPending || !planName} onClick={handleCreatePlan} className="bg-purple-600 hover:bg-purple-700 w-full">
+              <Button disabled={isPending || !planName} onClick={handleCreatePlan} className="bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 text-white w-full">
                 {isPending ? "Creando..." : "Crear Plan"}
               </Button>
             </DialogFooter>
@@ -240,18 +240,18 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       {/* Plan Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-zinc-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-white/10">
         <div>
           <div className="flex items-center gap-3 mb-1">
-            <h2 className="text-2xl font-bold text-gray-800">{plan.name}</h2>
-            <span className="px-3 py-1 bg-purple-100 text-purple-700 text-xs font-semibold rounded-full uppercase tracking-wider">
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-slate-100">{plan.name}</h2>
+            <span className="px-3 py-1 bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 text-xs font-semibold rounded-full uppercase tracking-wider">
               {plan.goal}
             </span>
           </div>
           {plan.targetCalories && (
             <div className="flex items-center text-sm text-gray-500 font-medium">
               <Flame className="w-4 h-4 mr-1 text-orange-500" />
-              Meta diaria: <span className="ml-1 text-gray-700">{plan.targetCalories} kcal</span>
+              Meta diaria: <span className="ml-1 text-gray-700 dark:text-slate-300">{plan.targetCalories} kcal</span>
             </div>
           )}
         </div>
@@ -271,17 +271,17 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
 
           return (
             <div key={day.id} className="flex flex-col gap-3">
-              <div className="bg-gray-50/50 rounded-xl p-4 border border-gray-100/80 shadow-sm relative overflow-hidden group transition-all hover:shadow-md hover:border-purple-200">
+              <div className="bg-gray-50/50 dark:bg-zinc-900/50 rounded-xl p-4 border border-gray-100/80 dark:border-white/5 shadow-sm relative overflow-hidden group transition-all hover:shadow-md hover:border-purple-200 dark:hover:border-purple-500/50">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-bold text-gray-700">{day.name}</h3>
-                  <div className={`text-xs font-semibold ${isOver ? 'text-orange-500' : 'text-purple-600'}`}>
+                  <h3 className="font-bold text-gray-700 dark:text-slate-200">{day.name}</h3>
+                  <div className={`text-xs font-semibold ${isOver ? 'text-orange-500' : 'text-purple-600 dark:text-purple-400'}`}>
                     {totalDayCalories} kcal
                   </div>
                 </div>
 
                 {/* Progress bar if target is set */}
                 {plan.targetCalories && (
-                  <div className="w-full bg-gray-200 rounded-full h-1.5 mb-4 overflow-hidden">
+                  <div className="w-full bg-gray-200 dark:bg-zinc-800 rounded-full h-1.5 mb-4 overflow-hidden">
                     <div 
                       className={`h-1.5 rounded-full transition-all duration-500 ${isOver ? 'bg-orange-500' : 'bg-purple-500'}`} 
                       style={{ width: `${progress}%` }}
@@ -292,28 +292,28 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
                 {/* Meals List */}
                 <div className="space-y-2 mb-4 min-h-[100px]">
                   {dayMeals.length === 0 ? (
-                    <div className="text-center text-xs text-gray-400 py-6 italic">
+                    <div className="text-center text-xs text-gray-400 dark:text-slate-500 py-6 italic">
                       Sin comidas
                     </div>
                   ) : (
                     dayMeals.map((meal) => (
-                      <div key={meal.id} className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm text-sm group/meal relative hover:border-purple-200 transition-colors">
-                        <div className="font-semibold text-gray-800 flex justify-between">
+                      <div key={meal.id} className="bg-white dark:bg-zinc-900 p-3 rounded-lg border border-gray-100 dark:border-white/10 shadow-sm text-sm group/meal relative hover:border-purple-200 dark:hover:border-purple-500/50 transition-colors">
+                        <div className="font-semibold text-gray-800 dark:text-slate-200 flex justify-between">
                           {meal.name}
-                          {meal.calories && <span className="text-gray-500 text-xs font-normal">{meal.calories} kcal</span>}
+                          {meal.calories && <span className="text-gray-500 dark:text-slate-400 text-xs font-normal">{meal.calories} kcal</span>}
                         </div>
                         {meal.description && (
-                          <div className="text-xs text-gray-500 mt-1 line-clamp-2 leading-relaxed">
+                          <div className="text-xs text-gray-500 dark:text-slate-400 mt-1 line-clamp-2 leading-relaxed">
                             {meal.description}
                           </div>
                         )}
                         
                         {/* Actions overlay */}
-                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/meal:opacity-100 transition-opacity bg-white/90 backdrop-blur rounded-md p-0.5 shadow-sm">
-                          <button onClick={() => openMealModal(day.id, meal)} className="p-1 text-gray-500 hover:text-purple-600 rounded">
+                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/meal:opacity-100 transition-opacity bg-white/90 dark:bg-zinc-900/90 backdrop-blur rounded-md p-0.5 shadow-sm">
+                          <button onClick={() => openMealModal(day.id, meal)} className="p-1 text-gray-500 dark:text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 rounded">
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => handleDeleteMeal(meal.id)} className="p-1 text-gray-500 hover:text-red-500 rounded">
+                          <button onClick={() => handleDeleteMeal(meal.id)} className="p-1 text-gray-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 rounded">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
@@ -326,7 +326,7 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="w-full text-xs font-medium text-purple-600 hover:text-purple-700 hover:bg-purple-50 border-dashed border-purple-200 bg-white"
+                  className="w-full text-xs font-medium text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 border-dashed border-purple-200 dark:border-purple-500/30 bg-white dark:bg-zinc-900"
                   onClick={() => openMealModal(day.id)}
                 >
                   <Plus className="w-3 h-3 mr-1" /> Agregar Comida
@@ -339,9 +339,9 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
 
       {/* Meal Modal */}
       <Dialog open={isMealModalOpen} onOpenChange={setIsMealModalOpen}>
-        <DialogContent className="sm:max-w-[400px] border-purple-100 shadow-xl">
+        <DialogContent className="sm:max-w-[400px] border-purple-100 dark:border-white/10">
           <DialogHeader>
-            <DialogTitle className="text-xl text-purple-900">
+            <DialogTitle className="text-xl text-purple-900 dark:text-purple-100">
               {editingMeal ? "Editar Comida" : "Agregar Comida"}
             </DialogTitle>
           </DialogHeader>
@@ -378,7 +378,7 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
             </div>
           </div>
           <DialogFooter>
-            <Button disabled={isPending || !mealName} onClick={handleSaveMeal} className="bg-purple-600 hover:bg-purple-700 w-full">
+            <Button disabled={isPending || !mealName} onClick={handleSaveMeal} className="bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 text-white w-full">
               {isPending ? "Guardando..." : "Guardar Comida"}
             </Button>
           </DialogFooter>
