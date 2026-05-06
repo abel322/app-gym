@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
 
 export async function POST(request: Request) {
   try {
@@ -17,12 +18,21 @@ export async function POST(request: Request) {
 
     // Start a transaction
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Create a placeholder Workout for this log session
+      // 1. Create a placeholder Workout for this log session with its exercises
       const workout = await tx.workout.create({
         data: {
           userId: session.user.id,
           name: name || `Entrenamiento - ${new Date(date).toLocaleDateString()}`,
           difficulty: "INTERMEDIATE",
+          exercises: {
+            create: exercises.map((ex: any, idx: number) => ({
+              exerciseId: ex.exerciseId,
+              order: idx,
+              sets: ex.sets.length,
+              reps: parseInt(ex.sets[0]?.reps) || 0,
+              weight: parseFloat(ex.sets[0]?.weight) || 0,
+            })),
+          },
         },
       });
 
@@ -48,6 +58,9 @@ export async function POST(request: Request) {
 
       return { workout, logs };
     });
+
+    // Purgar caché para que las páginas reflejen el nuevo entrenamiento instantáneamente
+    revalidatePath("/workouts");
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
