@@ -55,7 +55,6 @@ model User {
   workouts           Workout[]
   workoutLogs        WorkoutLog[]
   nutritionPlans     NutritionPlan[]
-  meals              Meal[]
   progressPhotos     ProgressPhoto[]
   predictions        Prediction[]
 }
@@ -147,56 +146,31 @@ model WorkoutLog {
 }
 
 model NutritionPlan {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name        String
-  description String?
-  calories    Int
-  protein     Int
-  carbs       Int
-  fat         Int
-  meals       Meal[]
-  startDate   DateTime?
-  endDate     DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  goal           String?
+  targetCalories Int?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  meals          Meal[]
 
   @@index([userId])
 }
 
 model Meal {
-  id              String         @id @default(cuid())
-  userId          String
-  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  nutritionPlanId String?
-  nutritionPlan   NutritionPlan? @relation(fields: [nutritionPlanId], references: [id])
-  name            String
-  time            String
-  calories        Int
-  protein         Int
-  carbs          Int
-  fat            Int
-  foods           MealFood[]
-  createdAt       DateTime       @default(now())
+  id          String        @id @default(cuid())
+  planId      String
+  plan        NutritionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  dayOfWeek   Int           // 1 to 5 (Monday to Friday)
+  name        String
+  description String?
+  calories    Int?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
-  @@index([userId])
-  @@index([nutritionPlanId])
-}
-
-model MealFood {
-  id        String   @id @default(cuid())
-  mealId    String
-  meal      Meal     @relation(fields: [mealId], references: [id], onDelete: Cascade)
-  name      String
-  quantity  Float
-  unit      String
-  calories  Int
-  protein   Int
-  carbs     Float
-  fat       Float
-
-  @@index([mealId])
+  @@index([planId])
 }
 
 model ProgressPhoto {
