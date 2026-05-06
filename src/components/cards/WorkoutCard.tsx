@@ -9,6 +9,7 @@ import { Workout, DifficultyLevel } from "@/types";
 import { Dumbbell, Clock, Flame, ChevronRight, Play, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { deleteWorkout } from "@/app/actions/workout";
+import { useWorkouts } from "@/hooks/useWorkouts";
 
 interface WorkoutCardProps {
   workout: Workout;
@@ -23,15 +24,22 @@ const difficultyColors: Record<DifficultyLevel, string> = {
 
 export function WorkoutCard({ workout, className }: WorkoutCardProps) {
   const [isPending, startTransition] = useTransition();
+  const { loadWorkouts } = useWorkouts(); // Zustand store refresh
 
   const handleDelete = (e: React.MouseEvent) => {
     e.preventDefault();
     if (window.confirm("¿Estás seguro de que deseas eliminar este entrenamiento?")) {
       startTransition(async () => {
         try {
-          await deleteWorkout(workout.id);
+          const result = await deleteWorkout(workout.id);
+          if (result?.success) {
+            await loadWorkouts(); // Force client state refresh
+          } else {
+            console.error("Failed to delete workout:", result?.error);
+            alert(`Error al eliminar: ${result?.error}`);
+          }
         } catch (error) {
-          console.error("Failed to delete workout:", error);
+          console.error("Failed to execute deleteWorkout action:", error);
         }
       });
     }

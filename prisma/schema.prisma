@@ -131,7 +131,7 @@ model WorkoutLog {
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   workoutId   String
-  workout     Workout  @relation(fields: [workoutId], references: [id])
+  workout     Workout  @relation(fields: [workoutId], references: [id], onDelete: Cascade)
   exerciseId  String
   exercise    Exercise @relation(fields: [exerciseId], references: [id])
   date        DateTime @default(now())
