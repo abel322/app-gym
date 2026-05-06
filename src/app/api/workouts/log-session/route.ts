@@ -12,47 +12,57 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, date, exercises } = body;
-
-    // exercises is an array of { exerciseId, sets: { reps, weight }[] }
+    const { name, weekExercises } = body;
 
     // Start a transaction
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Create a placeholder Workout for this log session with its exercises
+      // 1. Create ONE Parent Workout for this entire schedule
       const workout = await tx.workout.create({
         data: {
           userId: session.user.id,
-          name: name || `Entrenamiento - ${new Date(date).toLocaleDateString()}`,
+          name: name || `Entrenamiento Semanal`,
           difficulty: "INTERMEDIATE",
-          exercises: {
-            create: exercises.map((ex: any, idx: number) => ({
-              exerciseId: ex.exerciseId,
-              order: idx,
-              sets: ex.sets.length,
-              reps: parseInt(ex.sets[0]?.reps) || 0,
-              weight: parseFloat(ex.sets[0]?.weight) || 0,
-            })),
-          },
         },
       });
 
-      // 2. Create the WorkoutLogs
       const logs = [];
-      for (const ex of exercises) {
-        for (let i = 0; i < ex.sets.length; i++) {
-          const set = ex.sets[i];
-          const log = await tx.workoutLog.create({
-            data: {
-              userId: session.user.id,
-              workoutId: workout.id,
-              exerciseId: ex.exerciseId,
-              date: new Date(date),
-              sets: i + 1, // Set number
-              reps: parseInt(set.reps) || 0,
-              weight: parseFloat(set.weight) || 0,
-            },
-          });
-          logs.push(log);
+      let globalOrder = 0;
+
+      // 2. Iterate over the days and exercises
+      if (weekExercises && Array.isArray(weekExercises)) {
+        for (const day of weekExercises) {
+          for (const ex of day.exercises) {
+            
+            // 2A. Create the WorkoutExercise relation (used to render the Details Page Grid)
+            await tx.workoutExercise.create({
+              data: {
+                workoutId: workout.id,
+                exerciseId: ex.exerciseId,
+                order: globalOrder++,
+                sets: ex.sets.length,
+                reps: parseInt(ex.sets[0]?.reps) || 0,
+                weight: parseFloat(ex.sets[0]?.weight) || 0,
+                day: day.dayName // Store "Lunes", "Martes" here so the grid knows where to put it
+              }
+            });
+
+            // 2B. Create the WorkoutLogs for actual progress tracking
+            for (let i = 0; i < ex.sets.length; i++) {
+              const set = ex.sets[i];
+              const log = await tx.workoutLog.create({
+                data: {
+                  userId: session.user.id,
+                  workoutId: workout.id,
+                  exerciseId: ex.exerciseId,
+                  date: new Date(day.dateStr + "T12:00:00Z"),
+                  sets: i + 1, // Set number
+                  reps: parseInt(set.reps) || 0,
+                  weight: parseFloat(set.weight) || 0,
+                },
+              });
+              logs.push(log);
+            }
+          }
         }
       }
 

@@ -325,22 +325,30 @@ export default function LogWorkoutPage() {
         return acc;
       }, {} as Record<string, LoggedExercise[]>);
 
-      for (const [dateStr, exList] of Object.entries(byDate)) {
-        // Use Midday UTC to avoid timezone drift
-        const response = await fetch("/api/workouts/log-session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: `Entrenamiento del ${dateStr}`,
-            date: new Date(dateStr + "T12:00:00Z").toISOString(),
+      const weekExercises = Object.entries(byDate).map(([dateStr, exList]) => {
+         const dateObj = new Date(dateStr + "T12:00:00Z");
+         const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+         const dayName = days[dateObj.getDay()];
+         return {
+            dateStr,
+            dayName,
             exercises: exList.map((ex) => ({
-              exerciseId: ex.exerciseId,
-              sets: ex.sets.map((s) => ({ reps: s.reps, weight: s.weight })),
-            })),
-          }),
-        });
-        if (!response.ok) throw new Error(`Fallo al guardar el día ${dateStr}`);
-      }
+               exerciseId: ex.exerciseId,
+               sets: ex.sets.map((s) => ({ reps: s.reps, weight: s.weight }))
+            }))
+         };
+      });
+
+      const response = await fetch("/api/workouts/log-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: `Cronograma - Semana del ${weekDates[0].dateObj.toLocaleDateString('es-VE', { month: 'short', day: 'numeric' })}`,
+          weekExercises,
+        }),
+      });
+      
+      if (!response.ok) throw new Error("Fallo al guardar el cronograma");
 
       toast({
         title: "¡Semana Guardada!",
