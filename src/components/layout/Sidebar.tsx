@@ -15,6 +15,7 @@ import {
   LogOut,
   Menu,
   X,
+  Database,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ const navigation = [
   { name: "Mediciones", href: "/measurements", icon: Ruler },
   { name: "Entrenamientos", href: "/workouts", icon: Dumbbell },
   { name: "Nutrición", href: "/nutrition", icon: Utensils },
+  { name: "Base de Datos", href: "/dashboard/food-database", icon: Database },
   { name: "Análisis", href: "/analytics", icon: BarChart3 },
   { name: "Progreso", href: "/progress", icon: TrendingUp },
 ];

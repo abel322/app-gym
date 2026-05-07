@@ -200,3 +200,15 @@ model Prediction {
   @@index([userId])
   @@index([userId, type])
 }
+
+model Food {
+  id          String   @id @default(cuid())
+  name        String
+  imageUrl    String?
+  calories    Float
+  protein     Float
+  carbs       Float
+  fats        Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
