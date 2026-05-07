@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
 
 export async function POST(req: Request) {
   try {
@@ -11,31 +9,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No files received." }, { status: 400 });
     }
 
+    // Limitar el tamaño a 2MB para evitar strings muy pesados en Base64
+    const MAX_SIZE = 2 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      return NextResponse.json({ error: "El archivo es demasiado grande (Máximo 2MB)." }, { status: 400 });
+    }
+
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Create unique filename
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const filename = file.name.replace(/\.[^/.]+$/, "") + "-" + uniqueSuffix + path.extname(file.name);
-    
-    // Ensure public/uploads directory exists
-    const uploadDir = path.join(process.cwd(), "public", "uploads");
-    try {
-      await mkdir(uploadDir, { recursive: true });
-    } catch (e) {
-      // Ignore if already exists
-    }
-
-    const filepath = path.join(uploadDir, filename);
-
-    await writeFile(filepath, buffer);
+    // Convertir la imagen a Base64 (Data URL) para guardarla directamente en la base de datos
+    // Esto evita problemas de escritura en el sistema de archivos (fs) y errores 500 en Vercel
+    const mimeType = file.type || "image/jpeg";
+    const base64String = buffer.toString("base64");
+    const dataUrl = `data:${mimeType};base64,${base64String}`;
 
     return NextResponse.json({ 
       success: true, 
-      url: `/uploads/${filename}` 
+      url: dataUrl 
     });
-  } catch (error) {
-    console.error("Error uploading file:", error);
-    return NextResponse.json({ error: "File upload failed" }, { status: 500 });
+  } catch (error: any) {
+    console.error("Error procesando archivo (Upload API):", error.message || error);
+    return NextResponse.json({ error: "Fallo al procesar la imagen." }, { status: 500 });
   }
 }
