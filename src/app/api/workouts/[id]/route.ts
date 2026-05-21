@@ -58,7 +58,8 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const validatedData = workoutSchema.parse(body);
+    const { name, description, difficulty, duration, weekExercises } = body;
+    const validatedData = workoutSchema.parse({ name, description, difficulty, duration });
 
     // Verify ownership
     const existingWorkout = await prisma.workout.findUnique({
@@ -76,17 +77,45 @@ export async function PUT(
       return NextResponse.json({ error: "Prohibido" }, { status: 403 });
     }
 
-    const workout = await prisma.workout.update({
-      where: { id: params.id },
-      data: validatedData,
-      include: {
-        exercises: {
-          include: {
-            exercise: true,
-          },
-        },
-      },
+    const workout = await prisma.$transaction(async (tx) => {
+      // 1. Update the workout core details
+      const updatedWorkout = await tx.workout.update({
+        where: { id: params.id },
+        data: validatedData,
+      });
+
+      // 2. If weekExercises are provided, update them
+      if (weekExercises && Array.isArray(weekExercises)) {
+        // A. Delete existing workout exercises
+        await tx.workoutExercise.deleteMany({
+          where: { workoutId: params.id },
+        });
+
+        // B. Create new workout exercises
+        let globalOrder = 0;
+        for (const day of weekExercises) {
+          for (const ex of day.exercises) {
+            await tx.workoutExercise.create({
+              data: {
+                workoutId: params.id,
+                exerciseId: ex.exerciseId,
+                order: globalOrder++,
+                sets: ex.sets.length,
+                reps: parseInt(ex.sets[0]?.reps) || 0,
+                weight: parseFloat(ex.sets[0]?.weight) || 0,
+                day: day.dayName
+              }
+            });
+          }
+        }
+      }
+
+      return updatedWorkout;
     });
+
+    const { revalidatePath } = await import("next/cache");
+    revalidatePath("/workouts");
+    revalidatePath(`/workouts/${params.id}`);
 
     return NextResponse.json(workout);
   } catch (error) {

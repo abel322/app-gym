@@ -1,20 +1,19 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
-import { useUser } from "@/hooks/useUser";
-import { useMeasurements } from "@/hooks/useMeasurements";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/useToast";
-import { ArrowLeft, Save, Plus, Trash2, Flame, Dumbbell, Sparkles, Copy, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Flame, Dumbbell, Sparkles, Copy } from "lucide-react";
 import Image from "next/image";
 import { searchOrGenerateExercise } from "@/app/actions/exercise";
+
+const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
 interface Exercise {
   id: string;
@@ -35,17 +34,40 @@ interface LoggedExercise {
   exerciseName: string;
   imageUrl?: string;
   description?: string;
-  date: string; // YYYY-MM-DD local format
+  day: string;
   sets: SetData[];
 }
 
-const ACTIVITY_MULTIPLIERS = {
-  SEDENTARY: 1.2,
-  LIGHTLY_ACTIVE: 1.375,
-  MODERATELY_ACTIVE: 1.55,
-  VERY_ACTIVE: 1.725,
-  EXTRA_ACTIVE: 1.9,
-};
+interface WorkoutDetailsClientProps {
+  initialWorkout: {
+    id: string;
+    name: string;
+    description: string | null;
+    difficulty: string;
+    duration: number | null;
+    exercises: Array<{
+      id: string;
+      workoutId: string;
+      exerciseId: string;
+      exercise: {
+        id: string;
+        name: string;
+        description: string | null;
+        muscleGroup: string;
+        equipment: string | null;
+        videoUrl: string | null;
+        imageUrl: string | null;
+      };
+      order: number;
+      sets: number;
+      reps: number;
+      restSeconds: number;
+      weight: number | null;
+      day: string | null;
+    }>;
+  };
+  surplusTarget: number;
+}
 
 function ExerciseImage({ src, alt, className = "h-12 w-12" }: { src: string; alt: string; className?: string }) {
   const [isLoading, setIsLoading] = useState(true);
@@ -86,13 +108,13 @@ function ExerciseCardCompact({ logEx, onClick }: { logEx: LoggedExercise, onClic
     <Card className="cursor-pointer hover:border-primary transition-colors shadow-sm bg-white dark:bg-black overflow-hidden" onClick={onClick}>
       <div className="p-3 flex items-center gap-3">
          {logEx.imageUrl ? (
-           <div className="h-10 w-10 rounded-full overflow-hidden shrink-0 bg-muted border">
-             <Image src={logEx.imageUrl} alt={logEx.exerciseName} width={40} height={40} className="object-cover h-full w-full" />
-           </div>
+            <div className="h-10 w-10 rounded-full overflow-hidden shrink-0 bg-muted border">
+              <Image src={logEx.imageUrl} alt={logEx.exerciseName} width={40} height={40} className="object-cover h-full w-full" />
+            </div>
          ) : (
-           <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0 border">
-             <Dumbbell className="h-5 w-5 text-muted-foreground" />
-           </div>
+            <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0 border">
+              <Dumbbell className="h-5 w-5 text-muted-foreground" />
+            </div>
          )}
          <div className="flex-1 min-w-0">
            <p className="font-semibold text-sm truncate text-foreground">{logEx.exerciseName}</p>
@@ -105,83 +127,49 @@ function ExerciseCardCompact({ logEx, onClick }: { logEx: LoggedExercise, onClic
   );
 }
 
-export default function LogWorkoutPage() {
+export function WorkoutDetailsClient({ initialWorkout, surplusTarget }: WorkoutDetailsClientProps) {
   const router = useRouter();
-  const { user } = useUser();
-  const { getLatestMeasurement } = useMeasurements();
   const { toast } = useToast();
 
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [isLoadingExercises, setIsLoadingExercises] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMuscle, setSelectedMuscle] = useState<string>("all");
-  
-  const [loggedExercises, setLoggedExercises] = useState<LoggedExercise[]>([]);
+
+  const [loggedExercises, setLoggedExercises] = useState<LoggedExercise[]>(() => {
+    return initialWorkout.exercises.map((ex) => {
+      const setsArray = [];
+      for (let i = 0; i < ex.sets; i++) {
+        setsArray.push({
+          reps: ex.reps.toString(),
+          weight: (ex.weight ?? 0).toString()
+        });
+      }
+      return {
+        id: ex.id,
+        exerciseId: ex.exerciseId,
+        exerciseName: ex.exercise.name,
+        imageUrl: ex.exercise.imageUrl || undefined,
+        description: ex.exercise.description || undefined,
+        day: ex.day || "Lunes",
+        sets: setsArray
+      };
+    });
+  });
+
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  
+
   const [isExerciseDialogOpen, setIsExerciseDialogOpen] = useState(false);
-  const [selectedDateForAdd, setSelectedDateForAdd] = useState<string | null>(null);
-  
+  const [selectedDayForAdd, setSelectedDayForAdd] = useState<string | null>(null);
+
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
   const [copyDaySource, setCopyDaySource] = useState<string | null>(null);
-
-  const [surplusTarget, setSurplusTarget] = useState<number | null>(null);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
-
-  // Week Navigation State
-  const [currentWeekStart, setCurrentWeekStart] = useState(() => {
-    const curr = new Date();
-    const day = curr.getDay(); // 0 is Sunday, 1 is Monday
-    const diffToMonday = curr.getDate() - day + (day === 0 ? -6 : 1);
-    const monday = new Date(curr);
-    monday.setDate(diffToMonday);
-    monday.setHours(0, 0, 0, 0);
-    return monday;
-  });
-
-  const getWeekDates = (startDate: Date) => {
-    const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-    const week = [];
-    for (let i = 0; i < 7; i++) {
-      const nextDay = new Date(startDate);
-      nextDay.setDate(startDate.getDate() + i);
-      const yyyy = nextDay.getFullYear();
-      const mm = String(nextDay.getMonth() + 1).padStart(2, '0');
-      const dd = String(nextDay.getDate()).padStart(2, '0');
-      week.push({
-        dateStr: `${yyyy}-${mm}-${dd}`,
-        dayName: days[i],
-        dateObj: nextDay
-      });
-    }
-    return week;
-  };
-
-  const weekDates = useMemo(() => getWeekDates(currentWeekStart), [currentWeekStart]);
-  
-  const currentWeekEnd = new Date(currentWeekStart);
-  currentWeekEnd.setDate(currentWeekStart.getDate() + 6);
-
-  const prevWeek = () => {
-    const newDate = new Date(currentWeekStart);
-    newDate.setDate(newDate.getDate() - 7);
-    setCurrentWeekStart(newDate);
-  };
-
-  const nextWeek = () => {
-    const newDate = new Date(currentWeekStart);
-    newDate.setDate(newDate.getDate() + 7);
-    setCurrentWeekStart(newDate);
-  };
-
-  // Safe today string for comparison
-  const today = new Date();
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
   // Fetch exercises list
   useEffect(() => {
@@ -203,27 +191,12 @@ export default function LogWorkoutPage() {
 
   const muscleGroups = Array.from(new Set(exercises.map((ex) => ex.muscleGroup))).sort();
 
-  // Calculate surplus automatically
-  useEffect(() => {
-    const latestMeasurement = getLatestMeasurement();
-    const weight = latestMeasurement?.weight || user?.weight;
-    const height = latestMeasurement?.height || user?.height;
-    const age = user?.age;
-    const gender = user?.gender;
-    const activity = user?.activityLevel || "SEDENTARY";
-
-    if (weight && height && age && gender) {
-      let bmr = 10 * weight + 6.25 * height - 5 * age;
-      bmr += gender === "MALE" ? 5 : -161;
-      const multiplier = ACTIVITY_MULTIPLIERS[activity as keyof typeof ACTIVITY_MULTIPLIERS] || 1.2;
-      const tdee = bmr * multiplier;
-      setSurplusTarget(Math.round(tdee * 1.10));
-    }
-  }, [user, getLatestMeasurement]);
+  const todayIndex = new Date().getDay();
+  const currentDayName = todayIndex === 0 ? 'Domingo' : DIAS_SEMANA[todayIndex - 1];
 
   const addExercise = (exerciseId: string) => {
     const ex = exercises.find((e) => e.id === exerciseId);
-    if (!ex || !selectedDateForAdd) return;
+    if (!ex || !selectedDayForAdd) return;
     
     const newId = Math.random().toString(36).substr(2, 9);
     setLoggedExercises([
@@ -234,7 +207,7 @@ export default function LogWorkoutPage() {
         exerciseName: ex.name,
         imageUrl: ex.imageUrl,
         description: ex.description,
-        date: selectedDateForAdd,
+        day: selectedDayForAdd,
         sets: [{ reps: "", weight: "" }],
       },
     ]);
@@ -243,7 +216,7 @@ export default function LogWorkoutPage() {
   };
 
   const handleAIGenerate = async () => {
-    if (!searchQuery || !selectedDateForAdd) return;
+    if (!searchQuery || !selectedDayForAdd) return;
     setIsGenerating(true);
     try {
       const newEx = await searchOrGenerateExercise(searchQuery);
@@ -260,7 +233,7 @@ export default function LogWorkoutPage() {
           exerciseName: newEx.name,
           imageUrl: newEx.imageUrl,
           description: newEx.description,
-          date: selectedDateForAdd,
+          day: selectedDayForAdd,
           sets: [{ reps: "", weight: "" }],
         },
       ]);
@@ -324,18 +297,14 @@ export default function LogWorkoutPage() {
 
     setIsSaving(true);
     try {
-      const byDate = loggedExercises.reduce((acc, ex) => {
-        if (!acc[ex.date]) acc[ex.date] = [];
-        acc[ex.date].push(ex);
+      const byDay = loggedExercises.reduce((acc, ex) => {
+        if (!acc[ex.day]) acc[ex.day] = [];
+        acc[ex.day].push(ex);
         return acc;
       }, {} as Record<string, LoggedExercise[]>);
 
-      const weekExercises = Object.entries(byDate).map(([dateStr, exList]) => {
-         const dateObj = new Date(dateStr + "T12:00:00Z");
-         const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-         const dayName = days[dateObj.getDay()];
+      const weekExercises = Object.entries(byDay).map(([dayName, exList]) => {
          return {
-            dateStr,
             dayName,
             exercises: exList.map((ex) => ({
                exerciseId: ex.exerciseId,
@@ -344,11 +313,14 @@ export default function LogWorkoutPage() {
          };
       });
 
-      const response = await fetch("/api/workouts/log-session", {
-        method: "POST",
+      const response = await fetch(`/api/workouts/${initialWorkout.id}`, {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: `Cronograma - Semana del ${weekDates[0].dateObj.toLocaleDateString('es-VE', { month: 'short', day: 'numeric' })}`,
+          name: initialWorkout.name,
+          description: initialWorkout.description,
+          difficulty: initialWorkout.difficulty,
+          duration: initialWorkout.duration,
           weekExercises,
         }),
       });
@@ -357,9 +329,10 @@ export default function LogWorkoutPage() {
 
       toast({
         title: "¡Semana Guardada!",
-        description: "Tu cronograma semanal ha sido registrado correctamente.",
+        description: "Tu cronograma semanal ha sido actualizado correctamente.",
       });
       router.push("/workouts");
+      router.refresh();
     } catch (error) {
       toast({
         title: "Error",
@@ -382,22 +355,9 @@ export default function LogWorkoutPage() {
         
         {/* Header Actions */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <Button type="button" variant="ghost" onClick={() => router.push("/workouts")} className="gap-2">
+          <Button type="button" variant="ghost" onClick={() => router.push("/workouts")} className="gap-2 hover:bg-muted/50">
             <ArrowLeft className="h-4 w-4" /> Volver
           </Button>
-          
-          <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg border w-full sm:w-auto justify-between sm:justify-start">
-            <Button type="button" variant="ghost" size="icon" onClick={prevWeek} className="h-8 w-8">
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <div className="text-sm font-semibold px-2 text-center min-w-[140px] text-primary">
-              {isMounted ? currentWeekStart.toLocaleDateString('es-VE', { month: 'short', day: 'numeric' }) : ""} - 
-              {' '}{isMounted ? currentWeekEnd.toLocaleDateString('es-VE', { month: 'short', day: 'numeric' }) : ""}
-            </div>
-            <Button type="button" variant="ghost" size="icon" onClick={nextWeek} className="h-8 w-8">
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
         </div>
 
         {/* Info Banner (Surplus) */}
@@ -420,13 +380,13 @@ export default function LogWorkoutPage() {
 
         {/* Weekly Grid */}
         <div className="flex overflow-x-auto pb-4 gap-4 snap-x lg:grid lg:grid-cols-7 lg:gap-4 lg:snap-none hide-scrollbar">
-          {weekDates.map(({ dateStr, dayName, dateObj }) => {
-            const dayExercises = loggedExercises.filter(e => e.date === dateStr);
-            const isToday = isMounted && dateStr === todayStr;
+          {DIAS_SEMANA.map((dayName) => {
+            const dayExercises = loggedExercises.filter(e => e.day === dayName);
+            const isToday = isMounted && dayName === currentDayName;
             
             return (
               <div 
-                key={dateStr} 
+                key={dayName} 
                 className={`min-w-[280px] lg:min-w-0 snap-center flex-shrink-0 rounded-2xl p-3 flex flex-col h-[65vh] border transition-all ${
                   isToday ? 'bg-primary/5 border-primary/30 shadow-sm' : 'bg-gray-50/80 dark:bg-zinc-900/40 border-gray-100 dark:border-zinc-800'
                 }`}
@@ -435,9 +395,6 @@ export default function LogWorkoutPage() {
                    <h3 className={`font-bold capitalize ${isToday ? 'text-primary' : 'text-gray-700 dark:text-gray-300'}`}>
                      {dayName}
                    </h3>
-                   <p className="text-xs text-muted-foreground">
-                     {isMounted ? dateObj.toLocaleDateString('es-VE', { month: 'short', day: 'numeric' }) : ""}
-                   </p>
                 </div>
                 
                 <Button 
@@ -445,7 +402,7 @@ export default function LogWorkoutPage() {
                   variant="outline" 
                   className="w-full mb-3 border-dashed border-primary/40 text-primary hover:bg-primary/10 bg-white/50 dark:bg-black/50"
                   onClick={() => {
-                    setSelectedDateForAdd(dateStr);
+                    setSelectedDayForAdd(dayName);
                     setIsExerciseDialogOpen(true);
                   }}
                 >
@@ -458,7 +415,7 @@ export default function LogWorkoutPage() {
                     variant="ghost"
                     size="sm"
                     className="w-full mb-3 text-xs h-8 text-muted-foreground hover:text-foreground bg-white/40 dark:bg-white/5"
-                    onClick={() => setCopyDaySource(dateStr)}
+                    onClick={() => setCopyDaySource(dayName)}
                   >
                     <Copy className="h-3 w-3 mr-1" /> Copiar Rutina
                   </Button>
@@ -487,7 +444,7 @@ export default function LogWorkoutPage() {
         {/* Edit Workout Modal */}
         {editingExerciseId && (
           <Dialog open={!!editingExerciseId} onOpenChange={(open) => !open && setEditingExerciseId(null)}>
-            <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+            <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto z-50">
               <DialogHeader>
                 <div className="flex items-center gap-3">
                   {editingExercise?.imageUrl ? (
@@ -570,35 +527,35 @@ export default function LogWorkoutPage() {
         {/* Copy Routine Dialog */}
         {copyDaySource && (
           <Dialog open={!!copyDaySource} onOpenChange={(open) => !open && setCopyDaySource(null)}>
-            <DialogContent className="max-w-sm">
+            <DialogContent className="max-w-sm z-50">
               <DialogHeader>
                 <DialogTitle>Copiar Rutina</DialogTitle>
                 <DialogDescription>Selecciona el día destino para copiar los ejercicios.</DialogDescription>
               </DialogHeader>
               <div className="grid grid-cols-2 gap-2 mt-4">
-                {weekDates.map(d => (
+                {DIAS_SEMANA.map(dayName => (
                   <Button 
-                    key={d.dateStr} 
+                    key={dayName} 
                     type="button"
                     variant="outline" 
-                    disabled={d.dateStr === copyDaySource}
+                    disabled={dayName === copyDaySource}
                     className="hover:border-primary hover:text-primary transition-colors"
                     onClick={() => {
                       if (copyDaySource) {
-                         const exercisesToCopy = loggedExercises.filter(e => e.date === copyDaySource);
+                         const exercisesToCopy = loggedExercises.filter(e => e.day === copyDaySource);
                          const newExercises = exercisesToCopy.map(ex => ({
                            ...ex,
                            id: Math.random().toString(36).substr(2, 9),
-                           date: d.dateStr,
+                           day: dayName,
                            sets: ex.sets.map(s => ({ ...s }))
                          }));
                          setLoggedExercises(prev => [...prev, ...newExercises]);
                          setCopyDaySource(null);
-                         toast({ title: "Rutina copiada", description: `Ejercicios copiados al ${d.dayName}` });
+                         toast({ title: "Rutina copiada", description: `Ejercicios copiados al ${dayName}` });
                       }
                     }}
                   >
-                    {d.dayName}
+                    {dayName}
                   </Button>
                 ))}
               </div>
@@ -609,11 +566,11 @@ export default function LogWorkoutPage() {
         {/* Add Exercise Dialog */}
         {isExerciseDialogOpen && (
           <Dialog open={isExerciseDialogOpen} onOpenChange={setIsExerciseDialogOpen}>
-            <DialogContent className="max-h-[80vh] overflow-y-auto max-w-lg">
+            <DialogContent className="max-h-[80vh] overflow-y-auto max-w-lg z-50">
               <DialogHeader>
                 <DialogTitle>Seleccionar Ejercicio</DialogTitle>
                 <DialogDescription>
-                  Elige un ejercicio para el {selectedDateForAdd ? weekDates.find(d => d.dateStr === selectedDateForAdd)?.dayName || '' : ''}.
+                  Elige un ejercicio para el {selectedDayForAdd}.
                 </DialogDescription>
               </DialogHeader>
               <div className="flex flex-col gap-3 mt-4">
@@ -699,7 +656,7 @@ export default function LogWorkoutPage() {
         {/* Save Button */}
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-md border-t lg:pl-64 z-10 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
           <Button 
-            className="w-full max-w-4xl mx-auto block bg-gradient-primary text-lg py-6 shadow-lg hover:shadow-xl transition-shadow"
+            className="w-full max-w-4xl mx-auto block bg-gradient-primary text-lg py-6 shadow-lg hover:shadow-xl transition-shadow text-white font-semibold"
             onClick={handleSave}
             disabled={isSaving || loggedExercises.length === 0}
           >
