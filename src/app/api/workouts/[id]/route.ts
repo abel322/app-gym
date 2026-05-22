@@ -57,14 +57,45 @@ export async function PUT(
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { name, description, difficulty, duration, weekExercises } = body;
-    const validatedData = workoutSchema.parse({ name, description, difficulty, duration });
+    let body;
+    try {
+      body = await request.json();
+    } catch (parseErr) {
+      console.error("Error al parsear el JSON de la solicitud:", parseErr);
+      return NextResponse.json({ error: "Cuerpo de solicitud inválido" }, { status: 400 });
+    }
 
-    // Verify ownership
-    const existingWorkout = await prisma.workout.findUnique({
-      where: { id: params.id },
-    });
+    const { name, description, difficulty, duration, weekExercises } = body;
+    
+    // Log target and payload for debugging
+    console.log(`[PUT] Actualizando entrenamiento ID: ${params.id} para usuario: ${session.user.id}`);
+    console.log("Cuerpo recibido:", JSON.stringify({ name, description, difficulty, duration, weekExercisesCount: weekExercises?.length }, null, 2));
+
+    // Validar datos con Zod de manera robusta
+    let validatedData;
+    try {
+      validatedData = workoutSchema.parse({ name, description, difficulty, duration });
+    } catch (validationError: any) {
+      console.error("Error de validación en PUT workout:", validationError);
+      return NextResponse.json(
+        { 
+          error: "Datos de entrada inválidos", 
+          details: validationError.errors || validationError.message 
+        }, 
+        { status: 400 }
+      );
+    }
+
+    // Verificar la existencia y pertenencia del entrenamiento
+    let existingWorkout;
+    try {
+      existingWorkout = await prisma.workout.findUnique({
+        where: { id: params.id },
+      });
+    } catch (dbError) {
+      console.error("Error al buscar el entrenamiento en la base de datos:", dbError);
+      return NextResponse.json({ error: "Error en la base de datos al buscar el entrenamiento" }, { status: 500 });
+    }
 
     if (!existingWorkout) {
       return NextResponse.json(
@@ -77,51 +108,77 @@ export async function PUT(
       return NextResponse.json({ error: "Prohibido" }, { status: 403 });
     }
 
-    const workout = await prisma.$transaction(async (tx) => {
-      // 1. Update the workout core details
-      const updatedWorkout = await tx.workout.update({
-        where: { id: params.id },
-        data: validatedData,
-      });
-
-      // 2. If weekExercises are provided, update them
-      if (weekExercises && Array.isArray(weekExercises)) {
-        // A. Delete existing workout exercises
-        await tx.workoutExercise.deleteMany({
-          where: { workoutId: params.id },
+    // Ejecutar la actualización en una transacción
+    let workout;
+    try {
+      workout = await prisma.$transaction(async (tx) => {
+        // 1. Actualizar datos principales del entrenamiento
+        const updatedWorkout = await tx.workout.update({
+          where: { id: params.id },
+          data: validatedData,
         });
 
-        // B. Create new workout exercises
-        let globalOrder = 0;
-        for (const day of weekExercises) {
-          for (const ex of day.exercises) {
-            await tx.workoutExercise.create({
-              data: {
-                workoutId: params.id,
-                exerciseId: ex.exerciseId,
-                order: globalOrder++,
-                sets: ex.sets.length,
-                reps: parseInt(ex.sets[0]?.reps) || 0,
-                weight: parseFloat(ex.sets[0]?.weight) || 0,
-                day: day.dayName
-              }
-            });
+        // 2. Si se suministran ejercicios de la semana, actualizar la relación
+        if (weekExercises && Array.isArray(weekExercises)) {
+          // A. Eliminar ejercicios previos
+          await tx.workoutExercise.deleteMany({
+            where: { workoutId: params.id },
+          });
+
+          // B. Insertar los nuevos ejercicios mapeados
+          let globalOrder = 0;
+          for (const day of weekExercises) {
+            for (const ex of day.exercises) {
+              await tx.workoutExercise.create({
+                data: {
+                  workoutId: params.id,
+                  exerciseId: ex.exerciseId,
+                  order: globalOrder++,
+                  sets: ex.sets.length,
+                  reps: parseInt(ex.sets[0]?.reps) || 0,
+                  weight: parseFloat(ex.sets[0]?.weight) || 0,
+                  day: day.dayName
+                }
+              });
+            }
           }
         }
+
+        return updatedWorkout;
+      });
+    } catch (transactionError: any) {
+      console.error("Error crítico en la transacción de actualización de base de datos:", transactionError);
+      
+      // Registrar información específica de Prisma
+      if (transactionError.code) {
+        console.error(`Código de error Prisma: ${transactionError.code}`);
+      }
+      if (transactionError.meta) {
+        console.error("Meta de error Prisma:", JSON.stringify(transactionError.meta, null, 2));
       }
 
-      return updatedWorkout;
-    });
+      return NextResponse.json(
+        { 
+          error: "Error interno de base de datos al actualizar el cronograma", 
+          details: transactionError.message || String(transactionError) 
+        }, 
+        { status: 500 }
+      );
+    }
 
-    const { revalidatePath } = await import("next/cache");
-    revalidatePath("/workouts");
-    revalidatePath(`/workouts/${params.id}`);
+    try {
+      const { revalidatePath } = await import("next/cache");
+      revalidatePath("/workouts");
+      revalidatePath(`/workouts/${params.id}`);
+    } catch (cacheErr) {
+      console.error("Error al revalidar la caché de Next.js:", cacheErr);
+    }
 
     return NextResponse.json(workout);
   } catch (error) {
-    console.error("Update workout error:", error);
+    console.error("Error general no controlado al actualizar el entrenamiento:", error);
     return NextResponse.json(
-      { error: "Error al actualizar entrenamiento" },
+      { error: "Error interno del servidor" },
       { status: 500 }
     );
   }

@@ -19,8 +19,8 @@ interface Exercise {
   id: string;
   name: string;
   muscleGroup: string;
-  imageUrl?: string;
-  description?: string;
+  imageUrl?: string | null;
+  description?: string | null;
 }
 
 interface SetData {
@@ -32,8 +32,8 @@ interface LoggedExercise {
   id: string;
   exerciseId: string;
   exerciseName: string;
-  imageUrl?: string;
-  description?: string;
+  imageUrl?: string | null;
+  description?: string | null;
   day: string;
   sets: SetData[];
 }

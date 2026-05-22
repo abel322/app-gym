@@ -52,9 +52,9 @@ export const measurementSchema = z.object({
 
 export const workoutSchema = z.object({
   name: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
-  description: z.string().optional(),
+  description: z.string().nullable().optional(),
   difficulty: z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED"]).default("BEGINNER"),
-  duration: z.number().min(5).max(180).optional(),
+  duration: z.number().min(5).max(180).nullable().optional(),
 });
 
 export const exerciseSchema = z.object({
