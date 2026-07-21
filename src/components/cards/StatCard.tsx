@@ -74,15 +74,15 @@ export function StatCard({
             "to-transparent"
           )}
         />
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">{title}</p>
-              <p className="text-3xl font-bold mt-1">{value}</p>
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">{title}</p>
+              <p className="text-2xl sm:text-3xl font-bold mt-1 tracking-tight truncate">{value}</p>
               {trend && (
                 <p
                   className={cn(
-                    "text-sm mt-2 font-medium",
+                    "text-xs sm:text-sm mt-1 font-medium truncate",
                     trend.isPositive ? "text-green-500" : "text-red-500"
                   )}
                 >
@@ -93,11 +93,11 @@ export function StatCard({
             </div>
             <div
               className={cn(
-                "h-14 w-14 rounded-2xl flex items-center justify-center",
+                "h-11 w-11 sm:h-14 sm:w-14 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0",
                 colors.bg
               )}
             >
-              <Icon className={cn("h-7 w-7", colors.icon)} />
+              <Icon className={cn("h-5 w-5 sm:h-7 sm:w-7", colors.icon)} />
             </div>
           </div>
         </CardContent>
