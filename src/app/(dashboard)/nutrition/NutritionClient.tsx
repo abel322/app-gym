@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useOptimistic, useMemo } from "react";
-import { Plus, Utensils, Trash2, Edit2, Flame, Copy, MoreVertical, Calendar, Info } from "lucide-react";
+import { Plus, Utensils, Trash2, Edit2, Flame, Copy, MoreVertical, Calendar, Info, BarChart3, TrendingUp, Award, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -9,8 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { createNutritionPlan, deleteNutritionPlan, addMeal, updateMeal, deleteMeal, copyDayMeals } from "@/app/actions/nutrition";
+import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 
 type Meal = {
   id: string;
@@ -110,6 +112,15 @@ function getDailyMacroTargets(targetCalories: number | null, goal: string | null
   };
 }
 
+// Simple seedable pseudo-random number generator for stable mock daily logs
+function seedRandom(str: string) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return Math.abs(Math.sin(hash)) * 1000 % 1;
+}
+
 export default function NutritionClient({ plan }: { plan: Plan | null }) {
   const [isPending, startTransition] = useTransition();
   const [isCreatePlanOpen, setIsCreatePlanOpen] = useState(false);
@@ -119,6 +130,10 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
   const [editingMeal, setEditingMeal] = useState<Meal | null>(null);
   const [showOptions, setShowOptions] = useState(false);
   const [copyTargetDays, setCopyTargetDays] = useState<number[]>([]);
+  
+  // Analytics and History states
+  const [dateFilter, setDateFilter] = useState<"7" | "14" | "30">("7");
+  const [selectedHistoryRecord, setSelectedHistoryRecord] = useState<any | null>(null);
 
   // Form states for Plan
   const [planName, setPlanName] = useState("");
@@ -302,6 +317,131 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
     return getDailyMacroTargets(plan?.targetCalories || null, plan?.goal || null);
   }, [plan?.targetCalories, plan?.goal]);
 
+  // --- MOCK HISTORICAL DATA GENERATION ---
+  const historicalRecords = useMemo(() => {
+    if (!plan) return [];
+    const records = [];
+    const today = new Date();
+    
+    // Go back 30 days
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const dateStr = d.toISOString().split("T")[0];
+      const dayOfWeek = d.getDay() === 0 ? 7 : d.getDay(); // 1 = Lunes, ..., 7 = Domingo
+      
+      const dayMeals = optimisticMeals.filter(m => m.dayOfWeek === dayOfWeek);
+      const targetCals = plan.targetCalories || 2000;
+      
+      let baseCalories = dayMeals.reduce((acc, curr) => acc + (curr.calories || 0), 0);
+      let baseProtein = 0;
+      let baseCarbs = 0;
+      let baseFats = 0;
+      
+      dayMeals.forEach(meal => {
+        const macros = parseMacros(meal.description, meal.calories, plan.goal);
+        baseProtein += macros.protein;
+        baseCarbs += macros.carbs;
+        baseFats += macros.fats;
+      });
+
+      const seed = seedRandom(dateStr);
+      let consumedCalories = baseCalories;
+      let consumedProtein = baseProtein;
+      let consumedCarbs = baseCarbs;
+      let consumedFats = baseFats;
+      
+      // Simulate typical adherence variance if they have meals plan,
+      // or standard template variation if empty
+      if (baseCalories === 0 && optimisticMeals.length > 0) {
+        consumedCalories = Math.round(targetCals * (0.82 + seed * 0.30));
+        const fallbackMacros = getDailyMacroTargets(consumedCalories, plan.goal);
+        consumedProtein = fallbackMacros.protein;
+        consumedCarbs = fallbackMacros.carbs;
+        consumedFats = fallbackMacros.fats;
+      } else if (baseCalories > 0) {
+        const factor = 0.82 + seed * 0.32;
+        consumedCalories = Math.round(baseCalories * factor);
+        consumedProtein = Math.round(baseProtein * factor);
+        consumedCarbs = Math.round(baseCarbs * factor);
+        consumedFats = Math.round(baseFats * factor);
+      }
+      
+      let status: "Completado" | "Bajo Meta" | "Excedido" = "Completado";
+      const diff = consumedCalories - targetCals;
+      if (diff < -150) {
+        status = "Bajo Meta";
+      } else if (diff > 150) {
+        status = "Excedido";
+      }
+
+      records.push({
+        date: dateStr,
+        dateFormatted: d.toLocaleDateString("es-ES", { day: "numeric", month: "short" }),
+        dateFull: d.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" }),
+        dayName: DAYS.find(day => day.id === dayOfWeek)?.name || "",
+        dayOfWeek,
+        targetCalories: targetCals,
+        consumedCalories,
+        protein: consumedProtein,
+        carbs: consumedCarbs,
+        fats: consumedFats,
+        status,
+      });
+    }
+    
+    return records;
+  }, [plan, optimisticMeals]);
+
+  // Filter records based on active select dropdown (7, 14, 30 days)
+  const filteredRecords = useMemo(() => {
+    const limit = Number(dateFilter);
+    return historicalRecords.slice(-limit);
+  }, [historicalRecords, dateFilter]);
+
+  // Calculate stats KPIs
+  const kpis = useMemo(() => {
+    if (filteredRecords.length === 0) return { avgCalories: 0, complianceRate: 0, proteinStreak: 0 };
+    
+    const totalCals = filteredRecords.reduce((acc, r) => acc + r.consumedCalories, 0);
+    const avgCalories = Math.round(totalCals / filteredRecords.length);
+    
+    const compliantDays = filteredRecords.filter(r => {
+      const ratio = r.consumedCalories / r.targetCalories;
+      return ratio >= 0.9 && ratio <= 1.1;
+    }).length;
+    const complianceRate = Math.round((compliantDays / filteredRecords.length) * 100);
+    
+    let proteinStreak = 0;
+    const minProtein = targets.protein * 0.9;
+    
+    // Check protein streak going backward
+    for (let i = filteredRecords.length - 1; i >= 0; i--) {
+      if (filteredRecords[i].protein >= minProtein) {
+        proteinStreak++;
+      } else {
+        break;
+      }
+    }
+    
+    return { avgCalories, complianceRate, proteinStreak };
+  }, [filteredRecords, targets]);
+
+  // Calculate average macronutrient breakdown for PieChart
+  const avgMacros = useMemo(() => {
+    if (filteredRecords.length === 0) return [];
+    const totalProtein = filteredRecords.reduce((acc, r) => acc + r.protein, 0);
+    const totalCarbs = filteredRecords.reduce((acc, r) => acc + r.carbs, 0);
+    const totalFats = filteredRecords.reduce((acc, r) => acc + r.fats, 0);
+    
+    const count = filteredRecords.length;
+    return [
+      { name: "Proteínas", value: Math.round(totalProtein / count), color: "#3b82f6" },
+      { name: "Carbohidratos", value: Math.round(totalCarbs / count), color: "#eab308" },
+      { name: "Grasas", value: Math.round(totalFats / count), color: "#ec4899" },
+    ];
+  }, [filteredRecords]);
+
   if (!plan) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center animate-in fade-in zoom-in duration-500">
@@ -425,199 +565,495 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
         </div>
       </div>
 
-      {/* Weekly Navigation Scrollable Capsules */}
-      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin snap-x">
-        {DAYS.map((day) => {
-          const dayMeals = optimisticMeals.filter(m => m.dayOfWeek === day.id);
-          const totalCals = dayMeals.reduce((acc, curr) => acc + (curr.calories || 0), 0);
-          const isActive = activeDay === day.id;
-          
-          return (
-            <button
-              key={day.id}
-              onClick={() => setActiveDay(day.id)}
-              className={cn(
-                "flex-1 min-w-[95px] snap-center flex flex-col items-center justify-center p-3 rounded-2xl border transition-all duration-200",
-                isActive
-                  ? "bg-gradient-primary text-white border-primary shadow-md"
-                  : "bg-white dark:bg-zinc-900 text-card-foreground border-gray-100 dark:border-white/5 hover:border-purple-300 dark:hover:border-purple-500/35"
+      <Tabs defaultValue="weekly" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2 h-auto p-1 max-w-sm bg-muted">
+          <TabsTrigger value="weekly" className="py-2.5 text-sm">Plan Semanal</TabsTrigger>
+          <TabsTrigger value="history" className="py-2.5 text-sm">Historial y Métricas</TabsTrigger>
+        </TabsList>
+
+        {/* Weekly Plan Tab Content */}
+        <TabsContent value="weekly" className="space-y-6 outline-none">
+          {/* Weekly Navigation Scrollable Capsules */}
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin snap-x">
+            {DAYS.map((day) => {
+              const dayMeals = optimisticMeals.filter(m => m.dayOfWeek === day.id);
+              const totalCals = dayMeals.reduce((acc, curr) => acc + (curr.calories || 0), 0);
+              const isActive = activeDay === day.id;
+              
+              return (
+                <button
+                  key={day.id}
+                  onClick={() => setActiveDay(day.id)}
+                  className={cn(
+                    "flex-1 min-w-[95px] snap-center flex flex-col items-center justify-center p-3 rounded-2xl border transition-all duration-200",
+                    isActive
+                      ? "bg-gradient-primary text-white border-primary shadow-md"
+                      : "bg-white dark:bg-zinc-900 text-card-foreground border-gray-100 dark:border-white/5 hover:border-purple-300 dark:hover:border-purple-500/35"
+                  )}
+                >
+                  <span className="text-[10px] sm:text-xs opacity-75 font-semibold uppercase">{day.short}</span>
+                  <span className="text-base sm:text-lg font-bold mt-1 leading-tight">{totalCals}</span>
+                  <span className="text-[10px] opacity-75">kcal</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Selected Day Nutrition Summary */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Calorie Progress Card */}
+            <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-white/10 rounded-2xl p-5 shadow-sm space-y-3">
+              <div className="flex justify-between items-baseline">
+                <span className="text-sm font-bold text-gray-600 dark:text-slate-400">Progreso Calórico</span>
+                <span className="text-lg font-extrabold text-purple-600 dark:text-purple-400">
+                  {dayNutrition.calories} <span className="text-sm font-normal text-muted-foreground">/ {plan.targetCalories || 2000} kcal</span>
+                </span>
+              </div>
+              <Progress 
+                value={plan.targetCalories ? Math.min(100, (dayNutrition.calories / plan.targetCalories) * 100) : 0} 
+                className="h-3" 
+                indicatorClassName={dayNutrition.calories > (plan.targetCalories || 2000) ? "bg-orange-500" : "bg-gradient-primary"}
+              />
+            </div>
+
+            {/* Macros Breakdown Card */}
+            <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-white/10 rounded-2xl p-5 shadow-sm flex flex-col justify-center space-y-4">
+              <div className="grid grid-cols-3 gap-3">
+                {/* Protein */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[11px] font-bold">
+                    <span className="text-blue-500">PROT</span>
+                    <span className="text-muted-foreground">{dayNutrition.protein}g / {targets.protein}g</span>
+                  </div>
+                  <Progress 
+                    value={targets.protein ? Math.min(100, (dayNutrition.protein / targets.protein) * 100) : 0} 
+                    className="h-2 bg-blue-500/10" 
+                    indicatorClassName="bg-blue-500" 
+                  />
+                </div>
+
+                {/* Carbs */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[11px] font-bold">
+                    <span className="text-yellow-600 dark:text-yellow-500">CARB</span>
+                    <span className="text-muted-foreground">{dayNutrition.carbs}g / {targets.carbs}g</span>
+                  </div>
+                  <Progress 
+                    value={targets.carbs ? Math.min(100, (dayNutrition.carbs / targets.carbs) * 100) : 0} 
+                    className="h-2 bg-yellow-500/10" 
+                    indicatorClassName="bg-yellow-500" 
+                  />
+                </div>
+
+                {/* Fats */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[11px] font-bold">
+                    <span className="text-pink-500">GRAS</span>
+                    <span className="text-muted-foreground">{dayNutrition.fats}g / {targets.fats}g</span>
+                  </div>
+                  <Progress 
+                    value={targets.fats ? Math.min(100, (dayNutrition.fats / targets.fats) * 100) : 0} 
+                    className="h-2 bg-pink-500/10" 
+                    indicatorClassName="bg-pink-500" 
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Action buttons (Copy Plan, Add Meal) */}
+          <div className="flex justify-between items-center gap-3">
+            <h3 className="text-lg font-bold text-gray-800 dark:text-slate-100 flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-purple-600" />
+              Comidas del {DAYS.find(d => d.id === activeDay)?.name}
+            </h3>
+            <div className="flex gap-2">
+              {activeDayMeals.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsCopyDialogOpen(true)}
+                  className="text-xs h-9"
+                >
+                  <Copy className="w-3.5 h-3.5 mr-1" /> Copiar Plan
+                </Button>
               )}
-            >
-              <span className="text-[10px] sm:text-xs opacity-75 font-semibold uppercase">{day.short}</span>
-              <span className="text-base sm:text-lg font-bold mt-1 leading-tight">{totalCals}</span>
-              <span className="text-[10px] opacity-75">kcal</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Selected Day Nutrition Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Calorie Progress Card */}
-        <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-white/10 rounded-2xl p-5 shadow-sm space-y-3">
-          <div className="flex justify-between items-baseline">
-            <span className="text-sm font-bold text-gray-600 dark:text-slate-400">Progreso Calórico</span>
-            <span className="text-lg font-extrabold text-purple-600 dark:text-purple-400">
-              {dayNutrition.calories} <span className="text-sm font-normal text-muted-foreground">/ {plan.targetCalories || 2000} kcal</span>
-            </span>
-          </div>
-          <Progress 
-            value={plan.targetCalories ? Math.min(100, (dayNutrition.calories / plan.targetCalories) * 100) : 0} 
-            className="h-3" 
-            indicatorClassName={dayNutrition.calories > (plan.targetCalories || 2000) ? "bg-orange-500" : "bg-gradient-primary"}
-          />
-        </div>
-
-        {/* Macros Breakdown Card */}
-        <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-white/10 rounded-2xl p-5 shadow-sm flex flex-col justify-center space-y-4">
-          <div className="grid grid-cols-3 gap-3">
-            {/* Protein */}
-            <div className="space-y-1">
-              <div className="flex justify-between text-[11px] font-bold">
-                <span className="text-blue-500">PROT</span>
-                <span className="text-muted-foreground">{dayNutrition.protein}g / {targets.protein}g</span>
-              </div>
-              <Progress 
-                value={targets.protein ? Math.min(100, (dayNutrition.protein / targets.protein) * 100) : 0} 
-                className="h-2 bg-blue-500/10" 
-                indicatorClassName="bg-blue-500" 
-              />
-            </div>
-
-            {/* Carbs */}
-            <div className="space-y-1">
-              <div className="flex justify-between text-[11px] font-bold">
-                <span className="text-yellow-600 dark:text-yellow-500">CARB</span>
-                <span className="text-muted-foreground">{dayNutrition.carbs}g / {targets.carbs}g</span>
-              </div>
-              <Progress 
-                value={targets.carbs ? Math.min(100, (dayNutrition.carbs / targets.carbs) * 100) : 0} 
-                className="h-2 bg-yellow-500/10" 
-                indicatorClassName="bg-yellow-500" 
-              />
-            </div>
-
-            {/* Fats */}
-            <div className="space-y-1">
-              <div className="flex justify-between text-[11px] font-bold">
-                <span className="text-pink-500">GRAS</span>
-                <span className="text-muted-foreground">{dayNutrition.fats}g / {targets.fats}g</span>
-              </div>
-              <Progress 
-                value={targets.fats ? Math.min(100, (dayNutrition.fats / targets.fats) * 100) : 0} 
-                className="h-2 bg-pink-500/10" 
-                indicatorClassName="bg-pink-500" 
-              />
+              <Button
+                size="sm"
+                onClick={() => openMealModal(activeDay)}
+                className="text-xs bg-purple-600 hover:bg-purple-700 text-white h-9"
+              >
+                <Plus className="w-3.5 h-3.5 mr-1" /> Agregar Comida
+              </Button>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Action buttons (Copy Plan, Add Meal) */}
-      <div className="flex justify-between items-center gap-3">
-        <h3 className="text-lg font-bold text-gray-800 dark:text-slate-100 flex items-center gap-2">
-          <Calendar className="h-5 w-5 text-purple-600" />
-          Comidas del {DAYS.find(d => d.id === activeDay)?.name}
-        </h3>
-        <div className="flex gap-2">
-          {activeDayMeals.length > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsCopyDialogOpen(true)}
-              className="text-xs h-9"
-            >
-              <Copy className="w-3.5 h-3.5 mr-1" /> Copiar Plan
-            </Button>
-          )}
-          <Button
-            size="sm"
-            onClick={() => openMealModal(activeDay)}
-            className="text-xs bg-purple-600 hover:bg-purple-700 text-white h-9"
-          >
-            <Plus className="w-3.5 h-3.5 mr-1" /> Agregar Comida
-          </Button>
-        </div>
-      </div>
-
-      {/* Grouped Meal Cards */}
-      <div className="space-y-4">
-        {activeDayMeals.length === 0 ? (
-          /* Empty State */
-          <div className="flex flex-col items-center justify-center py-12 px-4 text-center bg-white dark:bg-zinc-900 border border-dashed border-gray-200 dark:border-white/10 rounded-2xl">
-            <div className="w-14 h-14 bg-purple-50 dark:bg-purple-950/20 rounded-full flex items-center justify-center mb-3">
-              <Utensils className="h-6 w-6 text-purple-600/70" />
-            </div>
-            <p className="text-sm font-semibold text-gray-700 dark:text-slate-200">Sin comidas programadas</p>
-            <p className="text-xs text-muted-foreground mt-1 max-w-[280px]">
-              Agrega tus alimentos para este día o copia el plan de otro día.
-            </p>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="mt-4 text-xs font-semibold hover:bg-purple-50 dark:hover:bg-purple-900/10 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-500/20 bg-white dark:bg-zinc-900"
-              onClick={() => openMealModal(activeDay)}
-            >
-              <Plus className="h-3.5 w-3.5 mr-1" />
-              Agregar Comida
-            </Button>
-          </div>
-        ) : (
-          Object.entries(groupedMeals).map(([timeGroup, meals]) => {
-            if (meals.length === 0) return null;
-            return (
-              <div key={timeGroup} className="space-y-2">
-                <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider pl-1">{timeGroup}</h4>
-                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
-                  {meals.map((meal) => {
-                    const mealMacros = parseMacros(meal.description, meal.calories, plan.goal);
-                    return (
-                      <div key={meal.id} className="bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-gray-100 dark:border-white/10 shadow-sm relative group/meal hover:border-purple-200 dark:hover:border-purple-500/50 transition-colors">
-                        <div className="flex justify-between items-start">
-                          <div className="min-w-0">
-                            <h5 className="font-bold text-gray-800 dark:text-slate-200 truncate pr-8">{meal.name}</h5>
-                            {meal.description && (
-                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-relaxed">{meal.description}</p>
-                            )}
-                            <div className="flex flex-wrap gap-1.5 mt-2.5">
-                              <span className="text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold px-2 py-0.5 rounded-md">
-                                P: {mealMacros.protein}g
-                              </span>
-                              <span className="text-[10px] bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 font-semibold px-2 py-0.5 rounded-md">
-                                C: {mealMacros.carbs}g
-                              </span>
-                              <span className="text-[10px] bg-pink-500/10 text-pink-600 dark:text-pink-400 font-semibold px-2 py-0.5 rounded-md">
-                                G: {mealMacros.fats}g
-                              </span>
+          {/* Grouped Meal Cards */}
+          <div className="space-y-4">
+            {activeDayMeals.length === 0 ? (
+              /* Empty State */
+              <div className="flex flex-col items-center justify-center py-12 px-4 text-center bg-white dark:bg-zinc-900 border border-dashed border-gray-200 dark:border-white/10 rounded-2xl">
+                <div className="w-14 h-14 bg-purple-50 dark:bg-purple-950/20 rounded-full flex items-center justify-center mb-3">
+                  <Utensils className="h-6 w-6 text-purple-600/70" />
+                </div>
+                <p className="text-sm font-semibold text-gray-700 dark:text-slate-200">Sin comidas programadas</p>
+                <p className="text-xs text-muted-foreground mt-1 max-w-[280px]">
+                  Agrega tus alimentos para este día o copia el plan de otro día.
+                </p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="mt-4 text-xs font-semibold hover:bg-purple-50 dark:hover:bg-purple-900/10 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-500/20 bg-white dark:bg-zinc-900"
+                  onClick={() => openMealModal(activeDay)}
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  Agregar Comida
+                </Button>
+              </div>
+            ) : (
+              Object.entries(groupedMeals).map(([timeGroup, meals]) => {
+                if (meals.length === 0) return null;
+                return (
+                  <div key={timeGroup} className="space-y-2">
+                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider pl-1">{timeGroup}</h4>
+                    <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+                      {meals.map((meal) => {
+                        const mealMacros = parseMacros(meal.description, meal.calories, plan.goal);
+                        return (
+                          <div key={meal.id} className="bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-gray-100 dark:border-white/10 shadow-sm relative group/meal hover:border-purple-200 dark:hover:border-purple-500/50 transition-colors">
+                            <div className="flex justify-between items-start">
+                              <div className="min-w-0">
+                                <h5 className="font-bold text-gray-800 dark:text-slate-200 truncate pr-8">{meal.name}</h5>
+                                {meal.description && (
+                                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-relaxed">{meal.description}</p>
+                                )}
+                                <div className="flex flex-wrap gap-1.5 mt-2.5">
+                                  <span className="text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold px-2 py-0.5 rounded-md">
+                                    P: {mealMacros.protein}g
+                                  </span>
+                                  <span className="text-[10px] bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 font-semibold px-2 py-0.5 rounded-md">
+                                    C: {mealMacros.carbs}g
+                                  </span>
+                                  <span className="text-[10px] bg-pink-500/10 text-pink-600 dark:text-pink-400 font-semibold px-2 py-0.5 rounded-md">
+                                    G: {mealMacros.fats}g
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="text-right shrink-0">
+                                {meal.calories && (
+                                  <span className="text-xs font-bold text-purple-600 dark:text-purple-400 px-2 py-1 bg-purple-50 dark:bg-purple-900/30 rounded-lg">
+                                    {meal.calories} kcal
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {/* Actions overlay */}
+                            <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover/meal:opacity-100 transition-opacity bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md rounded-lg p-0.5 border shadow-sm">
+                              <button onClick={() => openMealModal(activeDay, meal)} className="p-1.5 text-gray-500 dark:text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 rounded-md hover:bg-muted">
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button onClick={() => handleDeleteMeal(meal.id)} className="p-1.5 text-gray-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 rounded-md hover:bg-muted">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
                           </div>
-                          <div className="text-right shrink-0">
-                            {meal.calories && (
-                              <span className="text-xs font-bold text-purple-600 dark:text-purple-400 px-2 py-1 bg-purple-50 dark:bg-purple-900/30 rounded-lg">
-                                {meal.calories} kcal
-                              </span>
-                            )}
-                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </TabsContent>
+
+        {/* History and Metrics Tab Content */}
+        <TabsContent value="history" className="space-y-6 outline-none">
+          {/* Filters section */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-zinc-900 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-white/10">
+            <div>
+              <h3 className="font-bold text-lg text-gray-800 dark:text-slate-100">Filtro de Rango</h3>
+              <p className="text-xs text-muted-foreground">Selecciona el periodo de análisis para tus métricas</p>
+            </div>
+            <div className="w-full sm:w-48 shrink-0">
+              <Select value={dateFilter} onValueChange={(val: any) => setDateFilter(val)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Seleccionar rango" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="7">Últimos 7 días</SelectItem>
+                  <SelectItem value="14">Últimos 14 días</SelectItem>
+                  <SelectItem value="30">Últimos 30 días</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* KPI Metrics Dashboard Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Card className="border-gray-100 dark:border-white/10 shadow-sm relative overflow-hidden bg-white dark:bg-zinc-900">
+              <CardContent className="p-5 flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Promedio de Calorías</p>
+                  <p className="text-2xl font-extrabold text-purple-600 dark:text-purple-400">{kpis.avgCalories} kcal</p>
+                </div>
+                <div className="h-10 w-10 rounded-xl bg-purple-50 dark:bg-purple-950/30 flex items-center justify-center shrink-0">
+                  <Flame className="h-5 w-5 text-purple-500" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-gray-100 dark:border-white/10 shadow-sm relative overflow-hidden bg-white dark:bg-zinc-900">
+              <CardContent className="p-5 flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cumplimiento de Meta</p>
+                  <p className="text-2xl font-extrabold text-blue-600 dark:text-blue-400">{kpis.complianceRate}%</p>
+                </div>
+                <div className="h-10 w-10 rounded-xl bg-blue-50 dark:bg-blue-950/30 flex items-center justify-center shrink-0">
+                  <TrendingUp className="h-5 w-5 text-blue-500" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-gray-100 dark:border-white/10 shadow-sm relative overflow-hidden bg-white dark:bg-zinc-900">
+              <CardContent className="p-5 flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Racha Proteica</p>
+                  <p className="text-2xl font-extrabold text-pink-600 dark:text-pink-400">{kpis.proteinStreak} días</p>
+                </div>
+                <div className="h-10 w-10 rounded-xl bg-pink-50 dark:bg-pink-950/30 flex items-center justify-center shrink-0">
+                  <Award className="h-5 w-5 text-pink-500" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Analytics Charts */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Calorie Trend Chart */}
+            <Card className="lg:col-span-2 border border-gray-100 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-sm">
+              <CardHeader className="p-5 pb-0">
+                <CardTitle className="text-base font-bold text-gray-800 dark:text-slate-200">Tendencia de Calorías</CardTitle>
+                <p className="text-xs text-muted-foreground">Comparativa diaria de consumo vs meta calórica</p>
+              </CardHeader>
+              <CardContent className="p-5">
+                <div className="h-[250px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={filteredRecords} margin={{ top: 10, right: 5, left: -25, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorTrend" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.25} />
+                          <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.05)" />
+                      <XAxis dataKey="dateFormatted" fontSize={10} stroke="#9ca3af" tickLine={false} />
+                      <YAxis fontSize={10} stroke="#9ca3af" tickLine={false} />
+                      <RechartsTooltip
+                        contentStyle={{
+                          backgroundColor: "rgba(15, 23, 42, 0.95)",
+                          border: "1px solid rgba(255,255,255,0.1)",
+                          borderRadius: "12px",
+                          color: "#fff",
+                        }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="consumedCalories"
+                        name="Consumido"
+                        stroke="#8b5cf6"
+                        strokeWidth={2}
+                        fillOpacity={1}
+                        fill="url(#colorTrend)"
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="targetCalories"
+                        name="Meta"
+                        stroke="#db2777"
+                        strokeWidth={1.5}
+                        strokeDasharray="4 4"
+                        dot={false}
+                      />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Macro Distribution Donut Chart */}
+            <Card className="border border-gray-100 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-sm">
+              <CardHeader className="p-5 pb-0">
+                <CardTitle className="text-base font-bold text-gray-800 dark:text-slate-200">Desglose de Macros</CardTitle>
+                <p className="text-xs text-muted-foreground">Distribución promedio de macros consumidos</p>
+              </CardHeader>
+              <CardContent className="p-5 flex flex-col items-center justify-center">
+                <div className="h-[200px] w-full relative">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={avgMacros}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={70}
+                        paddingAngle={3}
+                        dataKey="value"
+                      >
+                        {avgMacros.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip formatter={(val) => `${val}g`} />
+                      <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: "11px" }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Historical Log Table Card */}
+          <Card className="border border-gray-100 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
+            <CardHeader className="p-5">
+              <CardTitle className="text-base font-bold text-gray-800 dark:text-slate-200">Registro Histórico de Comidas</CardTitle>
+              <p className="text-xs text-muted-foreground">Historial detallado de consumo nutricional por día</p>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto w-full">
+                <table className="w-full text-sm border-collapse text-left">
+                  <thead>
+                    <tr className="border-y border-gray-100 dark:border-white/10 bg-muted/30 text-muted-foreground font-semibold text-xs uppercase">
+                      <th className="p-4 pl-6">Fecha</th>
+                      <th className="p-4">Calorías (Cons. vs Meta)</th>
+                      <th className="p-4">Prot</th>
+                      <th className="p-4">Carbs</th>
+                      <th className="p-4">Grasas</th>
+                      <th className="p-4 text-center">Estado</th>
+                      <th className="p-4 pr-6 text-center">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...filteredRecords].reverse().map((record) => (
+                      <tr key={record.date} className="border-b border-gray-100 dark:border-white/5 hover:bg-muted/10 transition-colors">
+                        <td className="p-4 pl-6 font-semibold">
+                          <div>{record.dateFull}</div>
+                          <div className="text-[10px] text-muted-foreground font-normal">{record.dayName}</div>
+                        </td>
+                        <td className="p-4">
+                          <span className="font-semibold text-gray-700 dark:text-slate-200">{record.consumedCalories}</span>
+                          <span className="text-xs text-muted-foreground"> / {record.targetCalories} kcal</span>
+                        </td>
+                        <td className="p-4 text-blue-600 dark:text-blue-400 font-semibold">{record.protein}g</td>
+                        <td className="p-4 text-yellow-600 dark:text-yellow-500 font-semibold">{record.carbs}g</td>
+                        <td className="p-4 text-pink-600 dark:text-pink-400 font-semibold">{record.fats}g</td>
+                        <td className="p-4 text-center">
+                          <span className={cn(
+                            "px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase border",
+                            record.status === "Completado" && "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20",
+                            record.status === "Bajo Meta" && "bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20",
+                            record.status === "Excedido" && "bg-orange-500/10 text-orange-600 dark:text-orange-500 border-orange-500/20"
+                          )}>
+                            {record.status}
+                          </span>
+                        </td>
+                        <td className="p-4 pr-6 text-center">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSelectedHistoryRecord(record)}
+                            className="h-8 text-xs font-semibold px-2 hover:bg-purple-50 dark:hover:bg-purple-950/20 text-purple-600 dark:text-purple-400"
+                          >
+                            Ver Detalle <ChevronRight className="h-3 w-3 ml-0.5" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Historical Detailed Meals Dialog */}
+      <Dialog open={selectedHistoryRecord !== null} onOpenChange={(open) => !open && setSelectedHistoryRecord(null)}>
+        {selectedHistoryRecord && (
+          <DialogContent className="sm:max-w-[450px] border-purple-100 dark:border-white/10 max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-xl text-purple-900 dark:text-purple-100 flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-purple-600" />
+                Detalle del Día {selectedHistoryRecord.dateFull}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="py-2 space-y-4">
+              <div className="p-3 bg-muted/40 rounded-xl flex items-center justify-between text-sm">
+                <div>
+                  <span className="text-xs text-muted-foreground uppercase font-bold">Consumo</span>
+                  <p className="text-lg font-extrabold text-purple-600 dark:text-purple-400 leading-tight">
+                    {selectedHistoryRecord.consumedCalories} kcal
+                  </p>
+                </div>
+                <div className="flex gap-2.5">
+                  <div className="text-center">
+                    <span className="text-[10px] text-muted-foreground uppercase font-bold">P</span>
+                    <p className="font-bold text-blue-600 dark:text-blue-400">{selectedHistoryRecord.protein}g</p>
+                  </div>
+                  <div className="text-center">
+                    <span className="text-[10px] text-muted-foreground uppercase font-bold">C</span>
+                    <p className="font-bold text-yellow-600 dark:text-yellow-500">{selectedHistoryRecord.carbs}g</p>
+                  </div>
+                  <div className="text-center">
+                    <span className="text-[10px] text-muted-foreground uppercase font-bold">G</span>
+                    <p className="font-bold text-pink-600 dark:text-pink-400">{selectedHistoryRecord.fats}g</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Meals list inside history record */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider pl-0.5">Comidas del Plan</h4>
+                {optimisticMeals.filter(m => m.dayOfWeek === selectedHistoryRecord.dayOfWeek).length === 0 ? (
+                  <p className="text-xs italic text-muted-foreground py-4 text-center">Sin comidas registradas en la plantilla de este día.</p>
+                ) : (
+                  optimisticMeals.filter(m => m.dayOfWeek === selectedHistoryRecord.dayOfWeek).map((meal) => {
+                    const mealMacros = parseMacros(meal.description, meal.calories, plan.goal);
+                    return (
+                      <div key={meal.id} className="border border-gray-100 dark:border-white/5 rounded-xl p-3 bg-white dark:bg-zinc-900/50 shadow-sm text-sm">
+                        <div className="flex justify-between font-bold">
+                          <span className="text-gray-800 dark:text-slate-200">{meal.name}</span>
+                          {meal.calories && <span className="text-purple-600 dark:text-purple-400 font-semibold">{meal.calories} kcal</span>}
                         </div>
-                        
-                        {/* Actions overlay */}
-                        <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover/meal:opacity-100 transition-opacity bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md rounded-lg p-0.5 border shadow-sm">
-                          <button onClick={() => openMealModal(activeDay, meal)} className="p-1.5 text-gray-500 dark:text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 rounded-md hover:bg-muted">
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button onClick={() => handleDeleteMeal(meal.id)} className="p-1.5 text-gray-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 rounded-md hover:bg-muted">
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                        {meal.description && (
+                          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{meal.description}</p>
+                        )}
+                        <div className="flex gap-1.5 mt-2">
+                          <span className="text-[9px] bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold px-2 py-0.5 rounded">
+                            P: {mealMacros.protein}g
+                          </span>
+                          <span className="text-[9px] bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 font-semibold px-2 py-0.5 rounded">
+                            C: {mealMacros.carbs}g
+                          </span>
+                          <span className="text-[9px] bg-pink-500/10 text-pink-600 dark:text-pink-400 font-semibold px-2 py-0.5 rounded">
+                            G: {mealMacros.fats}g
+                          </span>
                         </div>
                       </div>
                     );
-                  })}
-                </div>
+                  })
+                )}
               </div>
-            );
-          })
+            </div>
+            <DialogFooter>
+              <Button onClick={() => setSelectedHistoryRecord(null)} className="bg-purple-600 hover:bg-purple-700 text-white w-full">
+                Cerrar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
         )}
-      </div>
+      </Dialog>
 
       {/* Copy Plan Dialog */}
       <Dialog open={isCopyDialogOpen} onOpenChange={setIsCopyDialogOpen}>
