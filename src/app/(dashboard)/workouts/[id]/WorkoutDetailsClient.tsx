@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card } from "@/components/ui/card";
@@ -9,12 +9,22 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/useToast";
-import { ArrowLeft, Save, Plus, Trash2, Flame, Dumbbell, Sparkles, Copy } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Flame, Dumbbell, Sparkles, Copy, ChevronLeft, ChevronRight } from "lucide-react";
 import Image from "next/image";
 import { searchOrGenerateExercise } from "@/app/actions/exercise";
 import { cn } from "@/lib/utils";
 
 const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+
+const SHORT_DAYS: Record<string, string> = {
+  'Lunes': 'LUN',
+  'Martes': 'MAR',
+  'Miércoles': 'MIÉ',
+  'Jueves': 'JUE',
+  'Viernes': 'VIE',
+  'Sábado': 'SÁB',
+  'Domingo': 'DOM'
+};
 
 interface Exercise {
   id: string;
@@ -262,6 +272,52 @@ export function WorkoutDetailsClient({ initialWorkout, surplusTarget }: WorkoutD
   const [copyDaySource, setCopyDaySource] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
 
+  // Week Navigation State
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => {
+    const curr = new Date();
+    const day = curr.getDay(); // 0 is Sunday, 1 is Monday
+    const diffToMonday = curr.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(curr);
+    monday.setDate(diffToMonday);
+    monday.setHours(0, 0, 0, 0);
+    return monday;
+  });
+
+  const getWeekDates = (startDate: Date) => {
+    const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+    const week = [];
+    for (let i = 0; i < 7; i++) {
+      const nextDay = new Date(startDate);
+      nextDay.setDate(startDate.getDate() + i);
+      const yyyy = nextDay.getFullYear();
+      const mm = String(nextDay.getMonth() + 1).padStart(2, '0');
+      const dd = String(nextDay.getDate()).padStart(2, '0');
+      week.push({
+        dateStr: `${yyyy}-${mm}-${dd}`,
+        dayName: days[i],
+        dateObj: nextDay
+      });
+    }
+    return week;
+  };
+
+  const weekDates = useMemo(() => getWeekDates(currentWeekStart), [currentWeekStart]);
+  
+  const currentWeekEnd = new Date(currentWeekStart);
+  currentWeekEnd.setDate(currentWeekStart.getDate() + 6);
+
+  const prevWeek = () => {
+    const newDate = new Date(currentWeekStart);
+    newDate.setDate(newDate.getDate() - 7);
+    setCurrentWeekStart(newDate);
+  };
+
+  const nextWeek = () => {
+    const newDate = new Date(currentWeekStart);
+    newDate.setDate(newDate.getDate() + 7);
+    setCurrentWeekStart(newDate);
+  };
+
   useEffect(() => {
     setIsMounted(true);
   }, []);
@@ -468,12 +524,12 @@ export function WorkoutDetailsClient({ initialWorkout, surplusTarget }: WorkoutD
             <Button type="button" variant="ghost" onClick={() => router.push("/workouts")} className="h-9 w-9 p-0 hover:bg-muted/50 rounded-xl">
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div>
+            <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white leading-tight">
-                Cronograma Semanal
+                {initialWorkout.name}
               </h1>
               {surplusTarget && (
-                <div className="inline-flex items-center gap-1 mt-0.5 text-[11px] font-bold text-orange-600 bg-orange-500/10 px-2.5 py-0.5 rounded-full">
+                <div className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-600 bg-orange-500/10 px-2.5 py-0.5 rounded-full">
                   <Flame className="h-3 w-3 text-orange-600" />
                   Meta: {surplusTarget} kcal
                 </div>
@@ -491,25 +547,41 @@ export function WorkoutDetailsClient({ initialWorkout, surplusTarget }: WorkoutD
           </Button>
         </div>
 
+        {/* Week Selector */}
+        <div className="flex justify-center items-center py-2.5 px-4 bg-muted/30 dark:bg-zinc-900/30 rounded-xl border border-gray-100 dark:border-white/5">
+          <div className="flex items-center gap-4">
+            <Button type="button" variant="outline" size="icon" onClick={prevWeek} className="h-9 w-9 rounded-lg">
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div className="text-xs sm:text-sm font-bold text-foreground tracking-wider uppercase">
+              Semana: {isMounted ? currentWeekStart.toLocaleDateString('es-VE', { day: 'numeric', month: 'short' }) : ""} - {isMounted ? currentWeekEnd.toLocaleDateString('es-VE', { day: 'numeric', month: 'short', year: 'numeric' }) : ""}
+            </div>
+            <Button type="button" variant="outline" size="icon" onClick={nextWeek} className="h-9 w-9 rounded-lg">
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
         {/* Weekly Grid */}
-        <div className="flex overflow-x-auto pb-4 gap-4 snap-x hide-scrollbar">
-          {DIAS_SEMANA.map((dayName) => {
+        <div className="flex overflow-x-auto pb-4 gap-4 snap-x hide-scrollbar items-stretch">
+          {weekDates.map(({ dateStr, dayName, dateObj }) => {
             const dayExercises = loggedExercises.filter(e => e.day === dayName);
             const isToday = isMounted && dayName === currentDayName;
             const isEmpty = dayExercises.length === 0;
+            const shortName = SHORT_DAYS[dayName] || dayName.substring(0, 3).toUpperCase();
+            const dayNum = dateObj.getDate();
             
             return (
               <div 
                 key={dayName} 
                 className={cn(
-                  "w-[240px] flex-shrink-0 snap-center rounded-2xl p-3 flex flex-col border transition-all duration-200",
-                  isEmpty ? "h-fit min-h-[160px]" : "h-[65vh]",
+                  "w-[260px] min-w-[260px] flex-shrink-0 snap-center rounded-2xl p-3 flex flex-col h-[60vh] border transition-all duration-200",
                   isToday ? 'bg-primary/5 border-primary/30 shadow-sm' : 'bg-gray-50/80 dark:bg-zinc-900/40 border-gray-100 dark:border-zinc-800'
                 )}
               >
                 <div className="text-center mb-4">
                    <h3 className={`font-bold capitalize ${isToday ? 'text-primary' : 'text-gray-700 dark:text-gray-300'}`}>
-                     {dayName}
+                     {shortName} {dayNum}
                    </h3>
                 </div>
                 
