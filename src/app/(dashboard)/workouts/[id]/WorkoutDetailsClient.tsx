@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/useToast";
 import { ArrowLeft, Save, Plus, Trash2, Flame, Dumbbell, Sparkles, Copy } from "lucide-react";
 import Image from "next/image";
 import { searchOrGenerateExercise } from "@/app/actions/exercise";
+import { cn } from "@/lib/utils";
 
 const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
@@ -34,6 +35,7 @@ interface LoggedExercise {
   exerciseName: string;
   imageUrl?: string | null;
   description?: string | null;
+  muscleGroup?: string | null;
   day: string;
   sets: SetData[];
 }
@@ -103,25 +105,117 @@ function ExerciseImage({ src, alt, className = "h-12 w-12" }: { src: string; alt
   );
 }
 
-function ExerciseCardCompact({ logEx, onClick }: { logEx: LoggedExercise, onClick: () => void }) {
+const DEFAULT_REAL_EXERCISES: Exercise[] = [
+  {
+    id: "default-press-banca",
+    name: "Press de Banca",
+    muscleGroup: "Pecho",
+    imageUrl: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&q=80",
+    description: "Empuje horizontal con barra para desarrollar fuerza en pectorales, tríceps y deltoides anterior.",
+  },
+  {
+    id: "default-sentadilla",
+    name: "Sentadilla con Barra",
+    muscleGroup: "Piernas",
+    imageUrl: "https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=400&q=80",
+    description: "Ejercicio compuesto básico para potenciar cuádriceps, glúteos e isquiotibiales.",
+  },
+  {
+    id: "default-dominadas",
+    name: "Dominadas",
+    muscleGroup: "Espalda",
+    imageUrl: "https://images.unsplash.com/photo-1603252109303-2751441dd157?w=400&q=80",
+    description: "Tracción vertical con peso corporal ideal para trabajar el dorsal ancho y bíceps.",
+  },
+  {
+    id: "default-peso-muerto",
+    name: "Peso Muerto",
+    muscleGroup: "Espalda",
+    imageUrl: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=400&q=80",
+    description: "Levantamiento de barra desde el suelo que estimula toda la cadena posterior.",
+  },
+  {
+    id: "default-prensa-pierna",
+    name: "Prensa de Piernas",
+    muscleGroup: "Piernas",
+    imageUrl: "https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=400&q=80",
+    description: "Empuje de piernas en máquina enfocado en aislar cuádriceps y glúteos de forma segura.",
+  },
+  {
+    id: "default-curl-biceps",
+    name: "Curl de Bíceps con Mancuernas",
+    muscleGroup: "Brazos",
+    imageUrl: "https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=400&q=80",
+    description: "Flexión de brazos con mancuernas para concentrar el estímulo en el bíceps braquial.",
+  },
+  {
+    id: "default-press-militar",
+    name: "Press Militar",
+    muscleGroup: "Hombros",
+    imageUrl: "https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=400&q=80",
+    description: "Empuje vertical con barra por encima de la cabeza para deltoides y tríceps.",
+  },
+  {
+    id: "default-fondos-paralelas",
+    name: "Fondos en Paralelas",
+    muscleGroup: "Pecho",
+    imageUrl: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&q=80",
+    description: "Flexo-extensión de brazos en barras paralelas para pecho inferior y tríceps.",
+  },
+  {
+    id: "default-zancadas",
+    name: "Zancadas con Mancuernas",
+    muscleGroup: "Piernas",
+    imageUrl: "https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=400&q=80",
+    description: "Zancadas alternadas unilaterales para glúteos, cuádriceps y balance.",
+  },
+  {
+    id: "default-elevaciones-laterales",
+    name: "Elevaciones Laterales",
+    muscleGroup: "Hombros",
+    imageUrl: "https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=400&q=80",
+    description: "Aperturas laterales con mancuerna para aislar la cabeza lateral del deltoides.",
+  }
+];
+
+function ExerciseCardCompact({ logEx, onClick, onDelete }: { logEx: LoggedExercise, onClick: () => void, onDelete: () => void }) {
+  const reps = logEx.sets[0]?.reps || "10";
   return (
-    <Card className="cursor-pointer hover:border-primary transition-colors shadow-sm bg-white dark:bg-black overflow-hidden w-full" onClick={onClick}>
+    <Card className="cursor-pointer hover:border-primary transition-all shadow-sm bg-white dark:bg-zinc-950 border-gray-100 dark:border-white/5 overflow-hidden w-full group/card" onClick={onClick}>
       <div className="p-3 flex items-center gap-3 w-full">
          {logEx.imageUrl ? (
-            <div className="h-10 w-10 rounded-full overflow-hidden shrink-0 bg-muted border">
-              <Image src={logEx.imageUrl} alt={logEx.exerciseName} width={40} height={40} className="object-cover h-full w-full" />
+            <div className="w-16 h-12 rounded-lg overflow-hidden shrink-0 border relative">
+              <Image src={logEx.imageUrl} alt={logEx.exerciseName} width={64} height={48} className="object-cover h-full w-full" />
             </div>
          ) : (
-            <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0 border">
+            <div className="w-16 h-12 rounded-lg bg-muted flex items-center justify-center shrink-0 border">
               <Dumbbell className="h-5 w-5 text-muted-foreground" />
             </div>
          )}
          <div className="flex-1 min-w-0">
-           <p className="font-semibold text-sm truncate text-foreground">{logEx.exerciseName}</p>
-           <div className="text-[10px] font-bold text-primary bg-primary/10 inline-flex items-center px-2 py-0.5 rounded-full mt-1">
-             {logEx.sets.length} {logEx.sets.length === 1 ? 'serie' : 'series'}
+           <p className="font-bold text-sm truncate text-foreground leading-tight">{logEx.exerciseName}</p>
+           <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+             <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full shrink-0">
+               {logEx.sets.length} {logEx.sets.length === 1 ? 'serie' : 'series'} {reps && `× ${reps} reps`}
+             </span>
+             {logEx.muscleGroup && (
+               <span className="text-[10px] font-semibold text-purple-600 bg-purple-50 dark:bg-purple-950/30 px-2 py-0.5 rounded-full capitalize shrink-0">
+                 {logEx.muscleGroup}
+               </span>
+             )}
            </div>
          </div>
+         <button
+           type="button"
+           onClick={(e) => {
+             e.stopPropagation();
+             onDelete();
+           }}
+           className="p-1.5 text-gray-400 hover:text-red-500 rounded-md hover:bg-muted opacity-100 sm:opacity-0 group-hover/card:opacity-100 transition-opacity shrink-0 ml-1"
+           title="Eliminar ejercicio"
+         >
+           <Trash2 className="h-4 w-4" />
+         </button>
       </div>
     </Card>
   );
@@ -151,6 +245,7 @@ export function WorkoutDetailsClient({ initialWorkout, surplusTarget }: WorkoutD
         exerciseName: ex.exercise.name,
         imageUrl: ex.exercise.imageUrl || undefined,
         description: ex.exercise.description || undefined,
+        muscleGroup: ex.exercise.muscleGroup || undefined,
         day: ex.day || "Lunes",
         sets: setsArray
       };
@@ -177,9 +272,21 @@ export function WorkoutDetailsClient({ initialWorkout, surplusTarget }: WorkoutD
     fetch("/api/exercises")
       .then((res) => res.json())
       .then((data) => {
-        if (Array.isArray(data)) setExercises(data);
+        if (Array.isArray(data)) {
+          const dbNames = new Set(data.map(e => e.name.toLowerCase()));
+          const combined = [
+            ...data,
+            ...DEFAULT_REAL_EXERCISES.filter(de => !dbNames.has(de.name.toLowerCase()))
+          ];
+          setExercises(combined);
+        } else {
+          setExercises(DEFAULT_REAL_EXERCISES);
+        }
       })
-      .catch((err) => console.error("Error fetching exercises", err))
+      .catch((err) => {
+        console.error("Error fetching exercises", err);
+        setExercises(DEFAULT_REAL_EXERCISES);
+      })
       .finally(() => setIsLoadingExercises(false));
   }, []);
 
@@ -207,6 +314,7 @@ export function WorkoutDetailsClient({ initialWorkout, surplusTarget }: WorkoutD
         exerciseName: ex.name,
         imageUrl: ex.imageUrl,
         description: ex.description,
+        muscleGroup: ex.muscleGroup,
         day: selectedDayForAdd,
         sets: [{ reps: "", weight: "" }],
       },
@@ -233,6 +341,7 @@ export function WorkoutDetailsClient({ initialWorkout, surplusTarget }: WorkoutD
           exerciseName: newEx.name,
           imageUrl: newEx.imageUrl,
           description: newEx.description,
+          muscleGroup: newEx.muscleGroup,
           day: selectedDayForAdd,
           sets: [{ reps: "", weight: "" }],
         },
@@ -354,51 +463,49 @@ export function WorkoutDetailsClient({ initialWorkout, surplusTarget }: WorkoutD
       <div className="space-y-6 pb-6">
         
         {/* Header Actions */}
-        <div className="flex justify-between items-center gap-4">
-          <Button type="button" variant="ghost" onClick={() => router.push("/workouts")} className="gap-2 hover:bg-muted/50">
-            <ArrowLeft className="h-4 w-4" /> Volver
-          </Button>
+        <div className="flex items-center justify-between gap-4 border-b pb-4 border-gray-100 dark:border-white/5">
+          <div className="flex items-center gap-3">
+            <Button type="button" variant="ghost" onClick={() => router.push("/workouts")} className="h-9 w-9 p-0 hover:bg-muted/50 rounded-xl">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white leading-tight">
+                Cronograma Semanal
+              </h1>
+              {surplusTarget && (
+                <div className="inline-flex items-center gap-1 mt-0.5 text-[11px] font-bold text-orange-600 bg-orange-500/10 px-2.5 py-0.5 rounded-full">
+                  <Flame className="h-3 w-3 text-orange-600" />
+                  Meta: {surplusTarget} kcal
+                </div>
+              )}
+            </div>
+          </div>
           <Button 
             type="button"
-            className="bg-gradient-primary text-white font-semibold w-auto px-6 py-2 shadow-md hover:shadow-lg transition-all rounded-xl"
+            className="bg-gradient-primary text-white font-semibold text-xs sm:text-sm px-5 py-2.5 shadow-md hover:shadow-lg transition-all rounded-xl"
             onClick={handleSave}
             disabled={isSaving || loggedExercises.length === 0}
           >
-            <Save className="h-4 w-4 mr-2 inline-block" />
-            {isSaving ? "Guardando..." : "Guardar Cronograma Semanal"}
+            <Save className="h-4 w-4 mr-1.5 inline-block" />
+            {isSaving ? "Guardando..." : "Guardar Semana"}
           </Button>
         </div>
-
-        {/* Info Banner (Surplus) */}
-        {surplusTarget && (
-          <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-2.5 px-4 flex items-center justify-between shadow-sm">
-            <div className="flex items-center gap-2.5">
-              <div className="p-1.5 bg-orange-500/20 rounded-lg shrink-0">
-                <Flame className="h-4.5 w-4.5 text-orange-600" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-orange-600">Objetivo Calórico (Hipertrofia)</p>
-                <p className="text-[10px] text-muted-foreground">Calculado según tu perfil</p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-lg font-extrabold text-orange-600">{surplusTarget} kcal</p>
-            </div>
-          </div>
-        )}
 
         {/* Weekly Grid */}
         <div className="flex overflow-x-auto pb-4 gap-4 snap-x hide-scrollbar">
           {DIAS_SEMANA.map((dayName) => {
             const dayExercises = loggedExercises.filter(e => e.day === dayName);
             const isToday = isMounted && dayName === currentDayName;
+            const isEmpty = dayExercises.length === 0;
             
             return (
               <div 
                 key={dayName} 
-                className={`min-w-[250px] w-full max-w-sm flex-shrink-0 snap-center rounded-2xl p-3 flex flex-col h-[65vh] border transition-all ${
+                className={cn(
+                  "w-[240px] flex-shrink-0 snap-center rounded-2xl p-3 flex flex-col border transition-all duration-200",
+                  isEmpty ? "h-fit min-h-[160px]" : "h-[65vh]",
                   isToday ? 'bg-primary/5 border-primary/30 shadow-sm' : 'bg-gray-50/80 dark:bg-zinc-900/40 border-gray-100 dark:border-zinc-800'
-                }`}
+                )}
               >
                 <div className="text-center mb-4">
                    <h3 className={`font-bold capitalize ${isToday ? 'text-primary' : 'text-gray-700 dark:text-gray-300'}`}>
@@ -431,17 +538,19 @@ export function WorkoutDetailsClient({ initialWorkout, surplusTarget }: WorkoutD
                 )}
 
                 <div className="flex-1 overflow-y-auto pr-1 space-y-3 pb-2 custom-scrollbar">
-                  {dayExercises.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-40">
-                      <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
-                        <Dumbbell className="h-6 w-6" />
-                      </div>
-                      <p className="text-sm font-medium">Descanso</p>
-                      <p className="text-xs">Sin entrenos</p>
+                  {isEmpty ? (
+                    <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground opacity-60 py-4">
+                      <p className="text-xs font-semibold">Día de Descanso</p>
+                      <p className="text-[10px] text-gray-400">Sin ejercicios</p>
                     </div>
                   ) : (
                     dayExercises.map(ex => (
-                      <ExerciseCardCompact key={ex.id} logEx={ex} onClick={() => setEditingExerciseId(ex.id)} />
+                      <ExerciseCardCompact 
+                        key={ex.id} 
+                        logEx={ex} 
+                        onClick={() => setEditingExerciseId(ex.id)} 
+                        onDelete={() => removeExercise(ex.id)}
+                      />
                     ))
                   )}
                 </div>

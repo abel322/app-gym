@@ -40,7 +40,7 @@ export async function searchOrGenerateExercise(query: string) {
     };
 
     // Generación de nombre en español y descripción técnica
-    const translatedName = query.charAt(0).toUpperCase() + query.slice(1) + " (Generado por IA)";
+    const translatedName = query.charAt(0).toUpperCase() + query.slice(1);
     const technicalDescription = `Ejercicio enfocado en desarrollar fuerza y masa muscular para ${query}. Técnica: Mantener la postura correcta y el control del movimiento en todo momento.`;
     
     // Búsqueda de URL de imagen real usando término específico
