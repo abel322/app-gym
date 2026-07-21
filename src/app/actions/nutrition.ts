@@ -74,3 +74,43 @@ export async function deleteMeal(id: string) {
 
   revalidatePath("/nutrition");
 }
+
+export async function copyDayMeals(planId: string, fromDay: number, toDays: number[]) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  // Get all meals of source day
+  const sourceMeals = await prisma.meal.findMany({
+    where: { planId, dayOfWeek: fromDay }
+  });
+
+  if (sourceMeals.length === 0) return;
+
+  // Clear target days first, then create copied meals
+  await prisma.$transaction(async (tx) => {
+    await tx.meal.deleteMany({
+      where: {
+        planId,
+        dayOfWeek: { in: toDays }
+      }
+    });
+
+    const newMealsData = toDays.flatMap((day) => 
+      sourceMeals.map((meal) => ({
+        planId,
+        dayOfWeek: day,
+        name: meal.name,
+        description: meal.description,
+        calories: meal.calories,
+      }))
+    );
+
+    if (newMealsData.length > 0) {
+      await tx.meal.createMany({
+        data: newMealsData
+      });
+    }
+  });
+
+  revalidatePath("/nutrition");
+}
