@@ -83,8 +83,8 @@ function ExerciseImage({ src, alt, className = "h-12 w-12" }: { src: string; alt
 
 function ExerciseCardCompact({ logEx, onClick }: { logEx: LoggedExercise, onClick: () => void }) {
   return (
-    <Card className="cursor-pointer hover:border-primary transition-colors shadow-sm bg-white dark:bg-black overflow-hidden" onClick={onClick}>
-      <div className="p-3 flex items-center gap-3">
+    <Card className="cursor-pointer hover:border-primary transition-colors shadow-sm bg-white dark:bg-black overflow-hidden w-full" onClick={onClick}>
+      <div className="p-3 flex items-center gap-3 w-full">
          {logEx.imageUrl ? (
            <div className="h-10 w-10 rounded-full overflow-hidden shrink-0 bg-muted border">
              <Image src={logEx.imageUrl} alt={logEx.exerciseName} width={40} height={40} className="object-cover h-full w-full" />
@@ -378,15 +378,26 @@ export default function LogWorkoutPage() {
       title="Cronograma Semanal"
       description="Planifica y registra tus entrenamientos para toda la semana"
     >
-      <div className="space-y-6 pb-24">
+      <div className="space-y-6 pb-6">
         
         {/* Header Actions */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <Button type="button" variant="ghost" onClick={() => router.push("/workouts")} className="gap-2">
-            <ArrowLeft className="h-4 w-4" /> Volver
-          </Button>
+          <div className="flex items-center gap-3 justify-between w-full sm:w-auto">
+            <Button type="button" variant="ghost" onClick={() => router.push("/workouts")} className="gap-2">
+              <ArrowLeft className="h-4 w-4" /> Volver
+            </Button>
+            <Button 
+              type="button"
+              className="bg-gradient-primary text-white font-semibold w-auto px-6 py-2 shadow-md hover:shadow-lg transition-all rounded-xl"
+              onClick={handleSave}
+              disabled={isSaving || loggedExercises.length === 0}
+            >
+              <Save className="h-4 w-4 mr-2 inline-block" />
+              {isSaving ? "Guardando..." : "Guardar Cronograma Semanal"}
+            </Button>
+          </div>
           
-          <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg border w-full sm:w-auto justify-between sm:justify-start">
+          <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg border w-full sm:w-auto justify-between sm:justify-start shrink-0">
             <Button type="button" variant="ghost" size="icon" onClick={prevWeek} className="h-8 w-8">
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -402,24 +413,24 @@ export default function LogWorkoutPage() {
 
         {/* Info Banner (Surplus) */}
         {surplusTarget && (
-          <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-4 flex items-center justify-between shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-orange-500/20 rounded-lg">
-                <Flame className="h-6 w-6 text-orange-600" />
+          <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-2.5 px-4 flex items-center justify-between shadow-sm">
+            <div className="flex items-center gap-2.5">
+              <div className="p-1.5 bg-orange-500/20 rounded-lg shrink-0">
+                <Flame className="h-4.5 w-4.5 text-orange-600" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-orange-600">Objetivo Calórico (Hipertrofia)</p>
-                <p className="text-xs text-muted-foreground">Calculado según tu perfil</p>
+                <p className="text-xs font-bold text-orange-600">Objetivo Calórico (Hipertrofia)</p>
+                <p className="text-[10px] text-muted-foreground">Calculado según tu perfil</p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-2xl font-bold text-orange-600">{surplusTarget} kcal</p>
+              <p className="text-lg font-extrabold text-orange-600">{surplusTarget} kcal</p>
             </div>
           </div>
         )}
 
         {/* Weekly Grid */}
-        <div className="flex overflow-x-auto pb-4 gap-4 snap-x lg:grid lg:grid-cols-7 lg:gap-4 lg:snap-none hide-scrollbar">
+        <div className="flex overflow-x-auto pb-4 gap-4 snap-x hide-scrollbar">
           {weekDates.map(({ dateStr, dayName, dateObj }) => {
             const dayExercises = loggedExercises.filter(e => e.date === dateStr);
             const isToday = isMounted && dateStr === todayStr;
@@ -427,7 +438,7 @@ export default function LogWorkoutPage() {
             return (
               <div 
                 key={dateStr} 
-                className={`min-w-[280px] lg:min-w-0 snap-center flex-shrink-0 rounded-2xl p-3 flex flex-col h-[65vh] border transition-all ${
+                className={`min-w-[250px] w-full max-w-sm flex-shrink-0 snap-center rounded-2xl p-3 flex flex-col h-[65vh] border transition-all ${
                   isToday ? 'bg-primary/5 border-primary/30 shadow-sm' : 'bg-gray-50/80 dark:bg-zinc-900/40 border-gray-100 dark:border-zinc-800'
                 }`}
               >
@@ -695,18 +706,6 @@ export default function LogWorkoutPage() {
             </DialogContent>
           </Dialog>
         )}
-
-        {/* Save Button */}
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-md border-t lg:pl-64 z-10 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
-          <Button 
-            className="w-full max-w-4xl mx-auto block bg-gradient-primary text-lg py-6 shadow-lg hover:shadow-xl transition-shadow"
-            onClick={handleSave}
-            disabled={isSaving || loggedExercises.length === 0}
-          >
-            <Save className="h-5 w-5 mr-2 inline-block" />
-            {isSaving ? "Guardando Semana..." : "Guardar Cronograma Semanal"}
-          </Button>
-        </div>
 
       </div>
       
