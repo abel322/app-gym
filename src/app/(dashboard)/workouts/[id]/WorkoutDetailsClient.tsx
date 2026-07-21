@@ -192,24 +192,26 @@ function ExerciseCardCompact({ logEx, onClick, onDelete }: { logEx: LoggedExerci
   const reps = logEx.sets[0]?.reps || "10";
   return (
     <Card className="cursor-pointer hover:border-primary transition-all shadow-sm bg-white dark:bg-zinc-950 border-gray-100 dark:border-white/5 overflow-hidden w-full group/card" onClick={onClick}>
-      <div className="p-3 flex items-center gap-3 w-full">
+      <div className="p-2 flex items-center gap-2 w-full">
          {logEx.imageUrl ? (
-            <div className="w-16 h-12 rounded-lg overflow-hidden shrink-0 border relative">
-              <Image src={logEx.imageUrl} alt={logEx.exerciseName} width={64} height={48} className="object-cover h-full w-full" />
+            <div className="w-10 h-10 rounded-md overflow-hidden shrink-0 border relative">
+              <Image src={logEx.imageUrl} alt={logEx.exerciseName} width={40} height={40} className="object-cover h-full w-full" />
             </div>
          ) : (
-            <div className="w-16 h-12 rounded-lg bg-muted flex items-center justify-center shrink-0 border">
-              <Dumbbell className="h-5 w-5 text-muted-foreground" />
+            <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center shrink-0 border">
+              <Dumbbell className="h-4.5 w-4.5 text-muted-foreground" />
             </div>
          )}
          <div className="flex-1 min-w-0">
-           <p className="font-bold text-sm truncate text-foreground leading-tight">{logEx.exerciseName}</p>
-           <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-             <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full shrink-0">
-               {logEx.sets.length} {logEx.sets.length === 1 ? 'serie' : 'series'} {reps && `× ${reps} reps`}
+           <p className="font-bold text-xs truncate text-foreground leading-tight w-full" title={logEx.exerciseName}>
+             {logEx.exerciseName}
+           </p>
+           <div className="flex items-center gap-1 mt-1 flex-wrap">
+             <span className="text-[9px] font-bold text-primary bg-primary/10 px-1 py-0.5 rounded-sm shrink-0">
+               {logEx.sets.length}S {reps && `× ${reps}R`}
              </span>
              {logEx.muscleGroup && (
-               <span className="text-[10px] font-semibold text-purple-600 bg-purple-50 dark:bg-purple-950/30 px-2 py-0.5 rounded-full capitalize shrink-0">
+               <span className="text-[9px] font-semibold text-purple-600 bg-purple-50 dark:bg-purple-950/30 px-1 py-0.5 rounded-sm capitalize shrink-0 truncate max-w-[50px]">
                  {logEx.muscleGroup}
                </span>
              )}
@@ -221,10 +223,10 @@ function ExerciseCardCompact({ logEx, onClick, onDelete }: { logEx: LoggedExerci
              e.stopPropagation();
              onDelete();
            }}
-           className="p-1.5 text-gray-400 hover:text-red-500 rounded-md hover:bg-muted opacity-100 sm:opacity-0 group-hover/card:opacity-100 transition-opacity shrink-0 ml-1"
+           className="p-1 text-gray-400 hover:text-red-500 rounded-md hover:bg-muted opacity-100 sm:opacity-0 group-hover/card:opacity-100 transition-opacity shrink-0 ml-0.5"
            title="Eliminar ejercicio"
          >
-           <Trash2 className="h-4 w-4" />
+           <Trash2 className="h-3.5 w-3.5" />
          </button>
       </div>
     </Card>
@@ -517,23 +519,23 @@ export function WorkoutDetailsClient({ initialWorkout, surplusTarget }: WorkoutD
 
   return (
     <DashboardLayout
-      title="Cronograma Semanal"
-      description="Planifica y registra tus entrenamientos para toda la semana"
+      title=""
+      description=""
     >
-      <div className="space-y-6 pb-6">
+      <div className="space-y-4 pb-4">
         
         {/* Header Actions */}
-        <div className="flex items-center justify-between gap-4 border-b pb-4 border-gray-100 dark:border-white/5">
-          <div className="flex items-center gap-3">
-            <Button type="button" variant="ghost" onClick={() => router.push("/workouts")} className="h-9 w-9 p-0 hover:bg-muted/50 rounded-xl">
-              <ArrowLeft className="h-5 w-5" />
+        <div className="flex items-center justify-between gap-4 border-b pb-3 border-gray-100 dark:border-white/5">
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="ghost" onClick={() => router.push("/workouts")} className="h-8 w-8 p-0 hover:bg-muted/50 rounded-xl">
+              <ArrowLeft className="h-4.5 w-4.5" />
             </Button>
-            <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white leading-tight">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-lg sm:text-xl font-black text-gray-900 dark:text-white leading-tight">
                 {initialWorkout.name}
               </h1>
               {surplusTarget && (
-                <div className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-600 bg-orange-500/10 px-2.5 py-0.5 rounded-full">
+                <div className="inline-flex items-center gap-1 text-[10px] font-bold text-orange-600 bg-orange-500/10 px-2 py-0.5 rounded-full">
                   <Flame className="h-3 w-3 text-orange-600" />
                   Meta: {surplusTarget} kcal
                 </div>
@@ -542,32 +544,32 @@ export function WorkoutDetailsClient({ initialWorkout, surplusTarget }: WorkoutD
           </div>
           <Button 
             type="button"
-            className="bg-gradient-primary text-white font-semibold text-xs sm:text-sm px-5 py-2.5 shadow-md hover:shadow-lg transition-all rounded-xl"
+            className="bg-gradient-primary text-white font-semibold text-xs px-4 py-2 shadow-sm hover:shadow-md transition-all rounded-lg"
             onClick={handleSave}
             disabled={isSaving || loggedExercises.length === 0}
           >
-            <Save className="h-4 w-4 mr-1.5 inline-block" />
+            <Save className="h-3.5 w-3.5 mr-1 inline-block" />
             {isSaving ? "Guardando..." : "Guardar Semana"}
           </Button>
         </div>
 
         {/* Week Selector */}
-        <div className="flex justify-center items-center py-2.5 px-4 bg-muted/30 dark:bg-zinc-900/30 rounded-xl border border-gray-100 dark:border-white/5">
+        <div className="flex justify-center items-center py-2 my-2 bg-transparent">
           <div className="flex items-center gap-4">
-            <Button type="button" variant="outline" size="icon" onClick={prevWeek} className="h-9 w-9 rounded-lg">
+            <Button type="button" variant="outline" size="icon" onClick={prevWeek} className="h-8 w-8 rounded-lg">
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <div className="text-xs sm:text-sm font-bold text-foreground tracking-wider uppercase">
+            <div className="text-xs font-bold text-foreground tracking-wider uppercase">
               Semana: {isMounted ? currentWeekStart.toLocaleDateString('es-VE', { day: 'numeric', month: 'short' }) : ""} - {isMounted ? currentWeekEnd.toLocaleDateString('es-VE', { day: 'numeric', month: 'short', year: 'numeric' }) : ""}
             </div>
-            <Button type="button" variant="outline" size="icon" onClick={nextWeek} className="h-9 w-9 rounded-lg">
+            <Button type="button" variant="outline" size="icon" onClick={nextWeek} className="h-8 w-8 rounded-lg">
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
 
         {/* Weekly Grid */}
-        <div className="flex overflow-x-auto pb-4 gap-4 snap-x hide-scrollbar items-stretch">
+        <div className="flex overflow-x-auto pb-2 gap-2 snap-x hide-scrollbar items-stretch lg:grid lg:grid-cols-7 lg:gap-2 lg:overflow-x-visible lg:pb-0">
           {weekDates.map(({ dateStr, dayName, dateObj }) => {
             const dayExercises = loggedExercises.filter(e => e.day === dayName);
             const isToday = isMounted && dayName === currentDayName;
@@ -579,12 +581,12 @@ export function WorkoutDetailsClient({ initialWorkout, surplusTarget }: WorkoutD
               <div 
                 key={dayName} 
                 className={cn(
-                  "w-[260px] min-w-[260px] flex-shrink-0 snap-center rounded-2xl p-3 flex flex-col h-[60vh] border transition-all duration-200",
+                  "min-w-[170px] max-w-[200px] w-full lg:min-w-0 lg:max-w-none flex-shrink-0 lg:flex-shrink rounded-2xl p-2.5 flex flex-col h-[55vh] border transition-all duration-200",
                   isToday ? 'bg-primary/5 border-primary/30 shadow-sm' : 'bg-gray-50/80 dark:bg-zinc-900/40 border-gray-100 dark:border-zinc-800'
                 )}
               >
-                <div className="text-center mb-4">
-                   <h3 className={`font-bold capitalize ${isToday ? 'text-primary' : 'text-gray-700 dark:text-gray-300'}`}>
+                <div className="text-center mb-2">
+                   <h3 className={`font-bold text-xs uppercase ${isToday ? 'text-primary' : 'text-gray-700 dark:text-gray-300'}`}>
                      {shortName} {dayNum}
                    </h3>
                 </div>
@@ -592,13 +594,13 @@ export function WorkoutDetailsClient({ initialWorkout, surplusTarget }: WorkoutD
                 <Button 
                   type="button"
                   variant="outline" 
-                  className="w-full mb-3 border-dashed border-primary/40 text-primary hover:bg-primary/10 bg-white/50 dark:bg-black/50"
+                  className="w-full mb-2 h-7 text-xs py-1 px-2 border-dashed border-primary/40 text-primary hover:bg-primary/10 bg-white/50 dark:bg-black/50"
                   onClick={() => {
                     setSelectedDayForAdd(dayName);
                     setIsExerciseDialogOpen(true);
                   }}
                 >
-                  <Plus className="h-4 w-4 mr-2" /> Añadir
+                  <Plus className="h-3 w-3 mr-1" /> Añadir
                 </Button>
 
                 {dayExercises.length > 0 && (
@@ -606,18 +608,18 @@ export function WorkoutDetailsClient({ initialWorkout, surplusTarget }: WorkoutD
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="w-full mb-3 text-xs h-8 text-muted-foreground hover:text-foreground bg-white/40 dark:bg-white/5"
+                    className="w-full mb-2 text-[10px] h-6 py-0.5 px-2 text-muted-foreground hover:text-foreground bg-white/40 dark:bg-white/5"
                     onClick={() => setCopyDaySource(dayName)}
                   >
                     <Copy className="h-3 w-3 mr-1" /> Copiar Rutina
                   </Button>
                 )}
 
-                <div className="flex-1 overflow-y-auto pr-1 space-y-3 pb-2 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto pr-0.5 space-y-2 pb-1 custom-scrollbar">
                   {isEmpty ? (
-                    <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground opacity-60 py-4">
-                      <p className="text-xs font-semibold">Día de Descanso</p>
-                      <p className="text-[10px] text-gray-400">Sin ejercicios</p>
+                    <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground opacity-65 py-4">
+                      <p className="text-[11px] font-semibold">Día de Descanso</p>
+                      <p className="text-[9px] text-gray-400">Sin ejercicios</p>
                     </div>
                   ) : (
                     dayExercises.map(ex => (
