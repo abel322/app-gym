@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useTransition, useOptimistic, useMemo } from "react";
-import { Plus, Utensils, Trash2, Edit2, Flame, Copy, MoreVertical, Calendar, Info, BarChart3, TrendingUp, Award, ChevronRight } from "lucide-react";
+import { useState, useTransition, useOptimistic, useMemo, useEffect } from "react";
+import { Plus, Utensils, Trash2, Edit2, Flame, Copy, MoreVertical, Calendar, Info, BarChart3, TrendingUp, Award, ChevronRight, ChevronLeft, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { createNutritionPlan, deleteNutritionPlan, addMeal, updateMeal, deleteMeal, copyDayMeals } from "@/app/actions/nutrition";
+import { createNutritionPlan, deleteNutritionPlan, addMeal, updateMeal, deleteMeal, copyDateMeals, setActivePlan } from "@/app/actions/nutrition";
 import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 
 type Meal = {
@@ -37,14 +37,24 @@ type Plan = {
 };
 
 const DAYS = [
-  { id: 1, name: "Lunes", short: "Lun" },
-  { id: 2, name: "Martes", short: "Mar" },
-  { id: 3, name: "Miércoles", short: "Mié" },
-  { id: 4, name: "Jueves", short: "Jue" },
-  { id: 5, name: "Viernes", short: "Vie" },
-  { id: 6, name: "Sábado", short: "Sáb" },
-  { id: 7, name: "Domingo", short: "Dom" },
+  { id: 1, name: "Lunes", short: "LUN" },
+  { id: 2, name: "Martes", short: "MAR" },
+  { id: 3, name: "Miércoles", short: "MIÉ" },
+  { id: 4, name: "Jueves", short: "JUE" },
+  { id: 5, name: "Viernes", short: "VIE" },
+  { id: 6, name: "Sábado", short: "SÁB" },
+  { id: 7, name: "Domingo", short: "DOM" },
 ];
+
+// Helper to get Monday of the current week (based on a given date)
+function getMonday(d: Date) {
+  const date = new Date(d);
+  const day = date.getDay();
+  const diff = date.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+  const monday = new Date(date.setDate(diff));
+  monday.setHours(0, 0, 0, 0);
+  return monday;
+}
 
 // Helper to parse protein, carbs, fats from description or estimate them
 function parseMacros(description: string | null, calories: number | null, goal: string | null) {
@@ -68,15 +78,26 @@ function parseMacros(description: string | null, calories: number | null, goal: 
     let cPct = 0.50;
     let fPct = 0.20;
     
-    const lowerGoal = (goal || "").toLowerCase();
-    if (lowerGoal.includes("déficit") || lowerGoal.includes("def") || lowerGoal.includes("lose")) {
-      pPct = 0.35;
-      cPct = 0.40;
-      fPct = 0.25;
-    } else if (lowerGoal.includes("mantenimiento") || lowerGoal.includes("maintain")) {
-      pPct = 0.25;
-      cPct = 0.50;
-      fPct = 0.25;
+    if (goal && goal.startsWith("CUSTOM:")) {
+      try {
+        const parsed = JSON.parse(goal.replace("CUSTOM:", ""));
+        pPct = (parsed.p || 30) / 100;
+        cPct = (parsed.c || 50) / 100;
+        fPct = (parsed.f || 20) / 100;
+      } catch (e) {
+        console.error("Error parsing custom macros for estimation", e);
+      }
+    } else {
+      const lowerGoal = (goal || "").toLowerCase();
+      if (lowerGoal.includes("déficit") || lowerGoal.includes("def") || lowerGoal.includes("lose")) {
+        pPct = 0.35;
+        cPct = 0.40;
+        fPct = 0.25;
+      } else if (lowerGoal.includes("mantenimiento") || lowerGoal.includes("maintain")) {
+        pPct = 0.25;
+        cPct = 0.50;
+        fPct = 0.25;
+      }
     }
     
     protein = Math.round((calories * pPct) / 4);
@@ -94,6 +115,26 @@ function getDailyMacroTargets(targetCalories: number | null, goal: string | null
   let cPct = 0.50;
   let fPct = 0.20;
   
+  if (goal && goal.startsWith("CUSTOM:")) {
+    try {
+      const parsed = JSON.parse(goal.replace("CUSTOM:", ""));
+      pPct = (parsed.p || 30) / 100;
+      cPct = (parsed.c || 50) / 100;
+      fPct = (parsed.f || 20) / 100;
+      return {
+        protein: Math.round((calories * pPct) / 4),
+        carbs: Math.round((calories * cPct) / 4),
+        fats: Math.round((calories * fPct) / 9),
+        custom: true,
+        pPct: parsed.p,
+        cPct: parsed.c,
+        fPct: parsed.f,
+      };
+    } catch (e) {
+      console.error("Error parsing custom macros targets", e);
+    }
+  }
+  
   const lowerGoal = (goal || "").toLowerCase();
   if (lowerGoal.includes("déficit") || lowerGoal.includes("def") || lowerGoal.includes("lose")) {
     pPct = 0.35;
@@ -109,6 +150,7 @@ function getDailyMacroTargets(targetCalories: number | null, goal: string | null
     protein: Math.round((calories * pPct) / 4),
     carbs: Math.round((calories * cPct) / 4),
     fats: Math.round((calories * fPct) / 9),
+    custom: false,
   };
 }
 
@@ -121,16 +163,42 @@ function seedRandom(str: string) {
   return Math.abs(Math.sin(hash)) * 1000 % 1;
 }
 
-export default function NutritionClient({ plan }: { plan: Plan | null }) {
+export default function NutritionClient({ plans }: { plans: Plan[] }) {
   const [isPending, startTransition] = useTransition();
   const [isCreatePlanOpen, setIsCreatePlanOpen] = useState(false);
   const [isMealModalOpen, setIsMealModalOpen] = useState(false);
   const [isCopyDialogOpen, setIsCopyDialogOpen] = useState(false);
-  const [activeDay, setActiveDay] = useState<number>(1);
   const [editingMeal, setEditingMeal] = useState<Meal | null>(null);
   const [showOptions, setShowOptions] = useState(false);
+  const [showPlanDropdown, setShowPlanDropdown] = useState(false);
   const [copyTargetDays, setCopyTargetDays] = useState<number[]>([]);
   
+  // Multiple plans state
+  const [activePlanId, setActivePlanId] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("activePlanId");
+      if (saved && plans.some(p => p.id === saved)) return saved;
+    }
+    return plans[0]?.id || null;
+  });
+
+  const plan = useMemo(() => {
+    return plans.find(p => p.id === activePlanId) || plans[0] || null;
+  }, [plans, activePlanId]);
+
+  // Week Selection state
+  const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => getMonday(new Date()));
+  const [activeDayDate, setActiveDayDate] = useState<string>(() => {
+    const monday = getMonday(new Date());
+    const todayStr = new Date().toISOString().split("T")[0];
+    const today = new Date();
+    const diff = (today.getTime() - monday.getTime()) / (1000 * 60 * 60 * 24);
+    if (diff >= 0 && diff < 7) {
+      return todayStr;
+    }
+    return monday.toISOString().split("T")[0];
+  });
+
   // Analytics and History states
   const [dateFilter, setDateFilter] = useState<"7" | "14" | "30">("7");
   const [selectedHistoryRecord, setSelectedHistoryRecord] = useState<any | null>(null);
@@ -139,6 +207,10 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
   const [planName, setPlanName] = useState("");
   const [planGoal, setPlanGoal] = useState("Superávit");
   const [planCalories, setPlanCalories] = useState<number | "">("");
+  const [isCustomMacros, setIsCustomMacros] = useState(false);
+  const [macroProtein, setMacroProtein] = useState<number>(30);
+  const [macroCarbs, setMacroCarbs] = useState<number>(50);
+  const [macroFats, setMacroFats] = useState<number>(20);
 
   // Form states for Meal
   const [mealName, setMealName] = useState("");
@@ -159,15 +231,145 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
     }
   );
 
-  const handleCreatePlan = () => {
+  // Sync plan switch selection and re-touch server-side updatedAt active ranking
+  const handleSelectPlan = (planId: string) => {
+    setActivePlanId(planId);
+    setShowPlanDropdown(false);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("activePlanId", planId);
+    }
     startTransition(async () => {
       try {
-        await createNutritionPlan({
+        await setActivePlan(planId);
+      } catch (e) {
+        console.error("Error setting active plan", e);
+      }
+    });
+  };
+
+  // Week Selector change week handlers
+  const handlePrevWeek = () => {
+    setCurrentWeekStart((prev) => {
+      const next = new Date(prev);
+      next.setDate(prev.getDate() - 7);
+      return next;
+    });
+  };
+
+  const handleNextWeek = () => {
+    setCurrentWeekStart((prev) => {
+      const next = new Date(prev);
+      next.setDate(prev.getDate() + 7);
+      return next;
+    });
+  };
+
+  // Format week range label
+  const weekRangeStr = useMemo(() => {
+    const monday = currentWeekStart;
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    
+    const optionsShort: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
+    const optionsYear: Intl.DateTimeFormatOptions = { year: "numeric" };
+    
+    const startStr = monday.toLocaleDateString("es-ES", optionsShort);
+    const endStr = sunday.toLocaleDateString("es-ES", optionsShort);
+    const yearStr = sunday.toLocaleDateString("es-ES", optionsYear);
+    
+    return `Semana: ${startStr} - ${endStr}, ${yearStr}`;
+  }, [currentWeekStart]);
+
+  // Compute weekdays details dynamically based on selected week Monday
+  const weekDays = useMemo(() => {
+    return DAYS.map((day, index) => {
+      const d = new Date(currentWeekStart);
+      d.setDate(currentWeekStart.getDate() + index);
+      const dateStr = d.toISOString().split("T")[0]; // YYYY-MM-DD
+      const dayNum = d.getDate();
+      return {
+        ...day,
+        dateStr,
+        dayNum,
+        label: `${day.name} ${dayNum}`,
+        shortLabel: `${day.short} ${dayNum}`,
+      };
+    });
+  }, [currentWeekStart]);
+
+  // Sync activeDayDate when week start changes
+  useEffect(() => {
+    const currentWeekDates = DAYS.map((_, index) => {
+      const d = new Date(currentWeekStart);
+      d.setDate(currentWeekStart.getDate() + index);
+      return d.toISOString().split("T")[0];
+    });
+    
+    if (!currentWeekDates.includes(activeDayDate)) {
+      setActiveDayDate(currentWeekDates[0]);
+    }
+  }, [currentWeekStart, activeDayDate]);
+
+  // Parse meals to retrieve calendar date prefixes and clean descriptions
+  const parsedMeals = useMemo(() => {
+    return optimisticMeals.map((meal) => {
+      let dateStr = "";
+      let cleanDescription = meal.description || "";
+      
+      if (meal.description && meal.description.startsWith("[DATE:")) {
+        const match = meal.description.match(/^\[DATE:(\d{4}-\d{2}-\d{2})\]\s*(.*)/);
+        if (match) {
+          dateStr = match[1];
+          cleanDescription = match[2];
+        }
+      }
+      
+      // Legacy fallback: map dayOfWeek (1-7) to corresponding weekday date of active viewed week
+      if (!dateStr) {
+        const d = new Date(currentWeekStart);
+        d.setDate(currentWeekStart.getDate() + (meal.dayOfWeek - 1));
+        dateStr = d.toISOString().split("T")[0];
+      }
+      
+      return {
+        ...meal,
+        dateStr,
+        cleanDescription,
+      };
+    });
+  }, [optimisticMeals, currentWeekStart]);
+
+  const handleCreatePlan = () => {
+    if (isCustomMacros && (macroProtein + macroCarbs + macroFats !== 100)) {
+      alert(`La suma de los porcentajes de macronutrientes debe ser exactamente 100%. Actualmente suma ${macroProtein + macroCarbs + macroFats}%.`);
+      return;
+    }
+
+    const finalGoal = isCustomMacros 
+      ? `CUSTOM:${JSON.stringify({ p: macroProtein, c: macroCarbs, f: macroFats })}` 
+      : planGoal;
+
+    startTransition(async () => {
+      try {
+        const newPlan = await createNutritionPlan({
           name: planName,
-          goal: planGoal,
+          goal: finalGoal,
           targetCalories: planCalories ? Number(planCalories) : undefined,
         });
+        if (newPlan) {
+          setActivePlanId(newPlan.id);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("activePlanId", newPlan.id);
+          }
+        }
         setIsCreatePlanOpen(false);
+        // Reset states
+        setPlanName("");
+        setPlanCalories("");
+        setIsCustomMacros(false);
+        setMacroProtein(30);
+        setMacroCarbs(50);
+        setMacroFats(20);
       } catch (e) {
         console.error("Error creating plan", e);
       }
@@ -179,17 +381,26 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
     startTransition(async () => {
       try {
         await deleteNutritionPlan(plan.id);
+        const remainingPlans = plans.filter(p => p.id !== plan.id);
+        if (remainingPlans.length > 0) {
+          setActivePlanId(remainingPlans[0].id);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("activePlanId", remainingPlans[0].id);
+          }
+        } else {
+          setActivePlanId(null);
+        }
       } catch (e) {
         console.error("Error deleting plan", e);
       }
     });
   };
 
-  const openMealModal = (dayId: number, meal?: Meal) => {
+  const openMealModal = (meal?: Meal & { cleanDescription?: string }) => {
     if (meal) {
       setEditingMeal(meal);
       setMealName(meal.name);
-      setMealDescription(meal.description || "");
+      setMealDescription(meal.cleanDescription || meal.description || "");
       setMealCalories(meal.calories || "");
     } else {
       setEditingMeal(null);
@@ -201,21 +412,26 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
   };
 
   const handleSaveMeal = () => {
-    if (!plan || !activeDay) return;
+    if (!plan || !activeDayDate) return;
     const caloriesVal = mealCalories ? Number(mealCalories) : undefined;
+    const finalDescription = `[DATE:${activeDayDate}] ${mealDescription}`;
+    
+    const dateObj = new Date(activeDayDate);
+    const dayOfWeek = dateObj.getDay() === 0 ? 7 : dateObj.getDay();
     
     startTransition(async () => {
       if (editingMeal) {
         addOptimisticMeal({
           ...editingMeal,
           name: mealName,
-          description: mealDescription,
+          description: finalDescription,
           calories: caloriesVal || null,
+          dayOfWeek,
         });
         
         await updateMeal(editingMeal.id, {
           name: mealName,
-          description: mealDescription,
+          description: finalDescription,
           calories: caloriesVal,
         });
       } else {
@@ -223,9 +439,9 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
         addOptimisticMeal({
           id: tempId,
           planId: plan.id,
-          dayOfWeek: activeDay,
+          dayOfWeek,
           name: mealName,
-          description: mealDescription,
+          description: finalDescription,
           calories: caloriesVal || null,
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -233,9 +449,9 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
 
         await addMeal({
           planId: plan.id,
-          dayOfWeek: activeDay,
+          dayOfWeek,
           name: mealName,
-          description: mealDescription,
+          description: finalDescription,
           calories: caloriesVal,
         });
       }
@@ -253,9 +469,15 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
 
   const handleCopyMeals = () => {
     if (!plan || copyTargetDays.length === 0) return;
+    
+    const targetDateStrs = copyTargetDays.map(dayId => {
+      const found = weekDays.find(wd => wd.id === dayId);
+      return found ? found.dateStr : "";
+    }).filter(Boolean);
+
     startTransition(async () => {
       try {
-        await copyDayMeals(plan.id, activeDay, copyTargetDays);
+        await copyDateMeals(plan.id, activeDayDate, targetDateStrs);
         setIsCopyDialogOpen(false);
         setCopyTargetDays([]);
       } catch (e) {
@@ -264,13 +486,13 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
     });
   };
 
-  // Group meals for the active day
+  // Group meals for the active day date
   const activeDayMeals = useMemo(() => {
-    return optimisticMeals.filter(m => m.dayOfWeek === activeDay);
-  }, [optimisticMeals, activeDay]);
+    return parsedMeals.filter(m => m.dateStr === activeDayDate);
+  }, [parsedMeals, activeDayDate]);
 
   const groupedMeals = useMemo(() => {
-    const groups: Record<string, Meal[]> = {
+    const groups: Record<string, typeof activeDayMeals> = {
       "Desayuno": [],
       "Almuerzo": [],
       "Cena": [],
@@ -328,10 +550,12 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
       const d = new Date(today);
       d.setDate(today.getDate() - i);
       const dateStr = d.toISOString().split("T")[0];
-      const dayOfWeek = d.getDay() === 0 ? 7 : d.getDay(); // 1 = Lunes, ..., 7 = Domingo
+      const dayOfWeek = d.getDay() === 0 ? 7 : d.getDay();
       
-      const dayMeals = optimisticMeals.filter(m => m.dayOfWeek === dayOfWeek);
+      const seed = seedRandom(dateStr);
       const targetCals = plan.targetCalories || 2000;
+      
+      const dayMeals = parsedMeals.filter(m => m.dateStr === dateStr);
       
       let baseCalories = dayMeals.reduce((acc, curr) => acc + (curr.calories || 0), 0);
       let baseProtein = 0;
@@ -345,14 +569,11 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
         baseFats += macros.fats;
       });
 
-      const seed = seedRandom(dateStr);
       let consumedCalories = baseCalories;
       let consumedProtein = baseProtein;
       let consumedCarbs = baseCarbs;
       let consumedFats = baseFats;
       
-      // Simulate typical adherence variance if they have meals plan,
-      // or standard template variation if empty
       if (baseCalories === 0 && optimisticMeals.length > 0) {
         consumedCalories = Math.round(targetCals * (0.82 + seed * 0.30));
         const fallbackMacros = getDailyMacroTargets(consumedCalories, plan.goal);
@@ -391,7 +612,7 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
     }
     
     return records;
-  }, [plan, optimisticMeals]);
+  }, [plan, optimisticMeals, parsedMeals]);
 
   // Filter records based on active select dropdown (7, 14, 30 days)
   const filteredRecords = useMemo(() => {
@@ -415,7 +636,6 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
     let proteinStreak = 0;
     const minProtein = targets.protein * 0.9;
     
-    // Check protein streak going backward
     for (let i = filteredRecords.length - 1; i >= 0; i--) {
       if (filteredRecords[i].protein >= minProtein) {
         proteinStreak++;
@@ -442,7 +662,16 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
     ];
   }, [filteredRecords]);
 
-  if (!plan) {
+  // Show active plan helper text
+  const planGoalLabel = useMemo(() => {
+    if (!plan) return "";
+    if (plan.goal && plan.goal.startsWith("CUSTOM:")) {
+      return "Objetivos Personalizados";
+    }
+    return plan.goal;
+  }, [plan]);
+
+  if (plans.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center animate-in fade-in zoom-in duration-500">
         <div className="w-24 h-24 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center mb-6 shadow-inner">
@@ -478,18 +707,69 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="goal">Objetivo</Label>
-                <Select value={planGoal} onValueChange={setPlanGoal}>
-                  <SelectTrigger className="focus:ring-purple-500">
-                    <SelectValue placeholder="Selecciona tu objetivo" />
+                <Label>Distribución de Macros</Label>
+                <Select value={isCustomMacros ? "custom" : "standard"} onValueChange={(val) => setIsCustomMacros(val === "custom")}>
+                  <SelectTrigger>
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Superávit">Superávit Calórico (Volumen)</SelectItem>
-                    <SelectItem value="Déficit">Déficit Calórico (Definición)</SelectItem>
-                    <SelectItem value="Mantenimiento">Mantenimiento</SelectItem>
+                    <SelectItem value="standard">Estándar (según objetivo)</SelectItem>
+                    <SelectItem value="custom">Personalizado (porcentajes)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+
+              {!isCustomMacros ? (
+                <div className="grid gap-2 animate-in fade-in slide-in-from-top-1">
+                  <Label htmlFor="goal">Objetivo</Label>
+                  <Select value={planGoal} onValueChange={setPlanGoal}>
+                    <SelectTrigger className="focus:ring-purple-500">
+                      <SelectValue placeholder="Selecciona tu objetivo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Superávit">Superávit Calórico (Volumen)</SelectItem>
+                      <SelectItem value="Déficit">Déficit Calórico (Definición)</SelectItem>
+                      <SelectItem value="Mantenimiento">Mantenimiento</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-2 border p-3 rounded-xl bg-muted/20 animate-in fade-in slide-in-from-top-1">
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="protPercent" className="text-xs text-blue-500 font-bold">Prot %</Label>
+                    <Input
+                      id="protPercent"
+                      type="number"
+                      value={macroProtein}
+                      onChange={(e) => setMacroProtein(Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="carbPercent" className="text-xs text-yellow-600 dark:text-yellow-500 font-bold">Carbs %</Label>
+                    <Input
+                      id="carbPercent"
+                      type="number"
+                      value={macroCarbs}
+                      onChange={(e) => setMacroCarbs(Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="fatPercent" className="text-xs text-pink-500 font-bold">Grasas %</Label>
+                    <Input
+                      id="fatPercent"
+                      type="number"
+                      value={macroFats}
+                      onChange={(e) => setMacroFats(Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="col-span-3 text-[10px] text-right font-semibold text-muted-foreground mt-0.5">
+                    Total: <span className={cn(macroProtein + macroCarbs + macroFats === 100 ? "text-green-500" : "text-red-500")}>
+                      {macroProtein + macroCarbs + macroFats}%
+                    </span> (debe sumar 100%)
+                  </div>
+                </div>
+              )}
+
               <div className="grid gap-2">
                 <Label htmlFor="calories">Calorías Objetivo Diarias (Kcal)</Label>
                 <Input
@@ -515,15 +795,62 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      {/* Plan Header */}
+      {/* Plan Header Selector */}
       <div className="flex items-center justify-between gap-4 bg-white dark:bg-zinc-900 p-5 sm:p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-white/10">
         <div className="min-w-0">
           <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap">
-            <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent capitalize truncate">
-              {plan.name}
-            </h2>
+            {/* Dynamic Plan Switcher Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowPlanDropdown(!showPlanDropdown)}
+                className="flex items-center gap-1.5 text-xl sm:text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent hover:opacity-85 text-left capitalize transition-opacity"
+              >
+                <span>{plan.name}</span>
+                <ChevronDown className="h-5 w-5 text-purple-600 shrink-0" />
+              </button>
+              {showPlanDropdown && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowPlanDropdown(false)} />
+                  <div className="absolute left-0 mt-1.5 w-64 bg-white dark:bg-zinc-900 border border-gray-100 dark:border-white/10 rounded-2xl shadow-lg p-1.5 z-20 animate-in fade-in slide-in-from-top-1">
+                    <div className="text-[10px] font-bold text-muted-foreground px-3 py-1.5 uppercase tracking-wider">Tus Planes</div>
+                    <div className="space-y-0.5 max-h-48 overflow-y-auto">
+                      {plans.map((p) => {
+                        const isActive = p.id === activePlanId;
+                        return (
+                          <button
+                            key={p.id}
+                            onClick={() => handleSelectPlan(p.id)}
+                            className={cn(
+                              "w-full text-left px-3 py-2 text-sm rounded-xl transition-colors flex items-center justify-between",
+                              isActive
+                                ? "bg-purple-50 dark:bg-purple-950/20 text-purple-600 dark:text-purple-400 font-semibold"
+                                : "text-gray-700 dark:text-slate-300 hover:bg-muted"
+                            )}
+                          >
+                            <span className="truncate">{p.name}</span>
+                            {isActive && <span className="text-xs bg-purple-600 text-white font-bold px-1.5 py-0.5 rounded-full">✓</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="border-t border-gray-100 dark:border-white/5 my-1.5" />
+                    <button
+                      onClick={() => {
+                        setShowPlanDropdown(false);
+                        setIsCreatePlanOpen(true);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-purple-600 dark:text-purple-400 font-semibold hover:bg-purple-50 dark:hover:bg-purple-950/20 rounded-xl transition-colors text-left"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Crear Nuevo Plan
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
             <span className="px-2.5 py-0.5 bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 text-[10px] sm:text-xs font-semibold rounded-full uppercase tracking-wider">
-              {plan.goal}
+              {planGoalLabel}
             </span>
           </div>
           {plan.targetCalories && (
@@ -573,17 +900,43 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
 
         {/* Weekly Plan Tab Content */}
         <TabsContent value="weekly" className="space-y-6 outline-none">
-          {/* Weekly Navigation Scrollable Capsules */}
+          {/* Week Selector Section */}
+          <div className="flex items-center justify-between bg-white dark:bg-zinc-900 px-4 py-3 rounded-2xl border border-gray-100 dark:border-white/10 shadow-sm">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handlePrevWeek}
+              className="h-9 w-9 rounded-xl hover:bg-muted"
+              aria-label="Semana anterior"
+            >
+              <ChevronLeft className="h-5 w-5 text-muted-foreground hover:text-foreground" />
+            </Button>
+            <span className="text-xs sm:text-sm font-extrabold text-purple-700 dark:text-purple-400 flex items-center gap-2 uppercase tracking-wide">
+              <Calendar className="h-4 w-4 shrink-0 text-purple-500" />
+              {weekRangeStr}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleNextWeek}
+              className="h-9 w-9 rounded-xl hover:bg-muted"
+              aria-label="Semana siguiente"
+            >
+              <ChevronRight className="h-5 w-5 text-muted-foreground hover:text-foreground" />
+            </Button>
+          </div>
+
+          {/* Weekly Navigation Dynamic Capsules */}
           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin snap-x">
-            {DAYS.map((day) => {
-              const dayMeals = optimisticMeals.filter(m => m.dayOfWeek === day.id);
+            {weekDays.map((day) => {
+              const dayMeals = parsedMeals.filter(m => m.dateStr === day.dateStr);
               const totalCals = dayMeals.reduce((acc, curr) => acc + (curr.calories || 0), 0);
-              const isActive = activeDay === day.id;
+              const isActive = activeDayDate === day.dateStr;
               
               return (
                 <button
                   key={day.id}
-                  onClick={() => setActiveDay(day.id)}
+                  onClick={() => setActiveDayDate(day.dateStr)}
                   className={cn(
                     "flex-1 min-w-[95px] snap-center flex flex-col items-center justify-center p-3 rounded-2xl border transition-all duration-200",
                     isActive
@@ -591,9 +944,9 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
                       : "bg-white dark:bg-zinc-900 text-card-foreground border-gray-100 dark:border-white/5 hover:border-purple-300 dark:hover:border-purple-500/35"
                   )}
                 >
-                  <span className="text-[10px] sm:text-xs opacity-75 font-semibold uppercase">{day.short}</span>
-                  <span className="text-base sm:text-lg font-bold mt-1 leading-tight">{totalCals}</span>
-                  <span className="text-[10px] opacity-75">kcal</span>
+                  <span className="text-[10px] sm:text-xs opacity-75 font-semibold uppercase leading-none">{day.short}</span>
+                  <span className="text-base sm:text-lg font-bold mt-1.5 leading-none">{day.dayNum}</span>
+                  <span className="text-[10px] opacity-75 mt-1">{totalCals} kcal</span>
                 </button>
               );
             })}
@@ -665,7 +1018,11 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
           <div className="flex justify-between items-center gap-3">
             <h3 className="text-lg font-bold text-gray-800 dark:text-slate-100 flex items-center gap-2">
               <Calendar className="h-5 w-5 text-purple-600" />
-              Comidas del {DAYS.find(d => d.id === activeDay)?.name}
+              Comidas del {
+                weekDays.find(d => d.dateStr === activeDayDate) 
+                  ? `${weekDays.find(d => d.dateStr === activeDayDate)?.name} ${weekDays.find(d => d.dateStr === activeDayDate)?.dayNum}` 
+                  : ""
+              }
             </h3>
             <div className="flex gap-2">
               {activeDayMeals.length > 0 && (
@@ -680,7 +1037,7 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
               )}
               <Button
                 size="sm"
-                onClick={() => openMealModal(activeDay)}
+                onClick={() => openMealModal()}
                 className="text-xs bg-purple-600 hover:bg-purple-700 text-white h-9"
               >
                 <Plus className="w-3.5 h-3.5 mr-1" /> Agregar Comida
@@ -704,7 +1061,7 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
                   variant="outline" 
                   size="sm" 
                   className="mt-4 text-xs font-semibold hover:bg-purple-50 dark:hover:bg-purple-900/10 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-500/20 bg-white dark:bg-zinc-900"
-                  onClick={() => openMealModal(activeDay)}
+                  onClick={() => openMealModal()}
                 >
                   <Plus className="h-3.5 w-3.5 mr-1" />
                   Agregar Comida
@@ -724,8 +1081,8 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
                             <div className="flex justify-between items-start">
                               <div className="min-w-0">
                                 <h5 className="font-bold text-gray-800 dark:text-slate-200 truncate pr-8">{meal.name}</h5>
-                                {meal.description && (
-                                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-relaxed">{meal.description}</p>
+                                {meal.cleanDescription && (
+                                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-relaxed">{meal.cleanDescription}</p>
                                 )}
                                 <div className="flex flex-wrap gap-1.5 mt-2.5">
                                   <span className="text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold px-2 py-0.5 rounded-md">
@@ -750,7 +1107,7 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
                             
                             {/* Actions overlay */}
                             <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover/meal:opacity-100 transition-opacity bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md rounded-lg p-0.5 border shadow-sm">
-                              <button onClick={() => openMealModal(activeDay, meal)} className="p-1.5 text-gray-500 dark:text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 rounded-md hover:bg-muted">
+                              <button onClick={() => openMealModal(meal)} className="p-1.5 text-gray-500 dark:text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 rounded-md hover:bg-muted">
                                 <Edit2 className="w-3.5 h-3.5" />
                               </button>
                               <button onClick={() => handleDeleteMeal(meal.id)} className="p-1.5 text-gray-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 rounded-md hover:bg-muted">
@@ -1015,10 +1372,10 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
               {/* Meals list inside history record */}
               <div className="space-y-3">
                 <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider pl-0.5">Comidas del Plan</h4>
-                {optimisticMeals.filter(m => m.dayOfWeek === selectedHistoryRecord.dayOfWeek).length === 0 ? (
+                {parsedMeals.filter(m => m.dateStr === selectedHistoryRecord.date).length === 0 ? (
                   <p className="text-xs italic text-muted-foreground py-4 text-center">Sin comidas registradas en la plantilla de este día.</p>
                 ) : (
-                  optimisticMeals.filter(m => m.dayOfWeek === selectedHistoryRecord.dayOfWeek).map((meal) => {
+                  parsedMeals.filter(m => m.dateStr === selectedHistoryRecord.date).map((meal) => {
                     const mealMacros = parseMacros(meal.description, meal.calories, plan.goal);
                     return (
                       <div key={meal.id} className="border border-gray-100 dark:border-white/5 rounded-xl p-3 bg-white dark:bg-zinc-900/50 shadow-sm text-sm">
@@ -1026,8 +1383,8 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
                           <span className="text-gray-800 dark:text-slate-200">{meal.name}</span>
                           {meal.calories && <span className="text-purple-600 dark:text-purple-400 font-semibold">{meal.calories} kcal</span>}
                         </div>
-                        {meal.description && (
-                          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{meal.description}</p>
+                        {meal.cleanDescription && (
+                          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{meal.cleanDescription}</p>
                         )}
                         <div className="flex gap-1.5 mt-2">
                           <span className="text-[9px] bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold px-2 py-0.5 rounded">
@@ -1066,11 +1423,11 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
           </DialogHeader>
           <div className="py-4">
             <p className="text-sm text-muted-foreground mb-4">
-              Copia las comidas de este día ({DAYS.find(d => d.id === activeDay)?.name}) a los días seleccionados.
+              Copia las comidas de este día ({weekDays.find(d => d.dateStr === activeDayDate)?.name} {weekDays.find(d => d.dateStr === activeDayDate)?.dayNum}) a los días seleccionados de esta semana.
             </p>
             <div className="grid grid-cols-2 gap-2">
-              {DAYS.map((day) => {
-                if (day.id === activeDay) return null;
+              {weekDays.map((day) => {
+                if (day.dateStr === activeDayDate) return null;
                 const isSelected = copyTargetDays.includes(day.id);
                 return (
                   <button
@@ -1089,7 +1446,7 @@ export default function NutritionClient({ plan }: { plan: Plan | null }) {
                         : "bg-white dark:bg-zinc-900 border-gray-100 dark:border-white/5 text-muted-foreground hover:bg-muted/40"
                     )}
                   >
-                    <span>{day.name}</span>
+                    <span>{day.name} {day.dayNum}</span>
                     <span className={cn(
                       "w-4 h-4 rounded-full border flex items-center justify-center text-[10px]",
                       isSelected ? "border-purple-600 bg-purple-600 text-white font-bold" : "border-gray-300 dark:border-white/10"

@@ -12,14 +12,13 @@ export default async function NutritionPage() {
     redirect("/login");
   }
 
-  // Get user's first nutrition plan, assuming one active plan for now
-  // For the requested features, we focus on the first plan
-  const plan = await prisma.nutritionPlan.findFirst({
+  // Get all user nutrition plans, ordered by updatedAt desc to put active plan first
+  const plans = await prisma.nutritionPlan.findMany({
     where: { userId: session.user.id },
     include: {
       meals: true,
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: { updatedAt: "desc" },
   });
 
   return (
@@ -27,7 +26,7 @@ export default async function NutritionPage() {
       title="Nutrición"
       description="Gestiona tus planes de alimentación semanales"
     >
-      <NutritionClient plan={plan} />
+      <NutritionClient plans={plans} />
     </DashboardLayout>
   );
 }

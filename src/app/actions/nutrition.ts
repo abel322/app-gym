@@ -114,3 +114,77 @@ export async function copyDayMeals(planId: string, fromDay: number, toDays: numb
 
   revalidatePath("/nutrition");
 }
+
+export async function copyDateMeals(planId: string, fromDateStr: string, toDateStrs: string[]) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  // Get all meals for this plan
+  const meals = await prisma.meal.findMany({
+    where: { planId }
+  });
+
+  // Filter meals belonging to fromDateStr
+  const sourceMeals = meals.filter(meal => {
+    if (!meal.description) return false;
+    return meal.description.startsWith(`[DATE:${fromDateStr}]`);
+  });
+
+  if (sourceMeals.length === 0) return;
+
+  // Clear target dates first, then create copied meals
+  await prisma.$transaction(async (tx) => {
+    // Delete target meals
+    for (const targetDateStr of toDateStrs) {
+      const targetMeals = meals.filter(meal => 
+        meal.description && meal.description.startsWith(`[DATE:${targetDateStr}]`)
+      );
+      if (targetMeals.length > 0) {
+        await tx.meal.deleteMany({
+          where: {
+            id: { in: targetMeals.map(m => m.id) }
+          }
+        });
+      }
+    }
+
+    // Insert new copies
+    const newMealsData = toDateStrs.flatMap((targetDateStr) => {
+      const targetDate = new Date(targetDateStr);
+      const dayOfWeek = targetDate.getDay() === 0 ? 7 : targetDate.getDay();
+      
+      return sourceMeals.map((meal) => {
+        const rawDesc = meal.description?.replace(/^\[DATE:\d{4}-\d{2}-\d{2}\]\s*/, "") || "";
+        const targetDesc = `[DATE:${targetDateStr}] ${rawDesc}`;
+        
+        return {
+          planId,
+          dayOfWeek,
+          name: meal.name,
+          description: targetDesc,
+          calories: meal.calories,
+        };
+      });
+    });
+
+    if (newMealsData.length > 0) {
+      await tx.meal.createMany({
+        data: newMealsData
+      });
+    }
+  });
+
+  revalidatePath("/nutrition");
+}
+
+export async function setActivePlan(planId: string) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  await prisma.nutritionPlan.update({
+    where: { id: planId, userId: session.user.id },
+    data: { updatedAt: new Date() }
+  });
+
+  revalidatePath("/nutrition");
+}
