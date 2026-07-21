@@ -243,6 +243,14 @@ export function WorkoutDetailsClient({ initialWorkout, surplusTarget }: WorkoutD
   const [selectedMuscle, setSelectedMuscle] = useState<string>("all");
 
   const [loggedExercises, setLoggedExercises] = useState<LoggedExercise[]>(() => {
+    // Determine the initial Monday date
+    const curr = new Date();
+    const day = curr.getDay(); // 0 is Sunday, 1 is Monday
+    const diffToMonday = curr.getDate() - day + (day === 0 ? -6 : 1);
+    const initialMonday = new Date(curr);
+    initialMonday.setDate(diffToMonday);
+    initialMonday.setHours(0, 0, 0, 0);
+
     return initialWorkout.exercises.map((ex) => {
       const setsArray = [];
       for (let i = 0; i < ex.sets; i++) {
@@ -251,6 +259,19 @@ export function WorkoutDetailsClient({ initialWorkout, surplusTarget }: WorkoutD
           weight: (ex.weight ?? 0).toString()
         });
       }
+
+      // Map legacy day names (Lunes, Martes) to dates of the initial week
+      let dayVal = ex.day || "Lunes";
+      if (DIAS_SEMANA.includes(dayVal)) {
+        const dayIndex = DIAS_SEMANA.indexOf(dayVal);
+        const dateOfCurrentWeek = new Date(initialMonday);
+        dateOfCurrentWeek.setDate(initialMonday.getDate() + dayIndex);
+        const yyyy = dateOfCurrentWeek.getFullYear();
+        const mm = String(dateOfCurrentWeek.getMonth() + 1).padStart(2, '0');
+        const dd = String(dateOfCurrentWeek.getDate()).padStart(2, '0');
+        dayVal = `${yyyy}-${mm}-${dd}`;
+      }
+
       return {
         id: ex.id,
         exerciseId: ex.exerciseId,
@@ -258,7 +279,7 @@ export function WorkoutDetailsClient({ initialWorkout, surplusTarget }: WorkoutD
         imageUrl: ex.exercise.imageUrl || undefined,
         description: ex.exercise.description || undefined,
         muscleGroup: ex.exercise.muscleGroup || undefined,
-        day: ex.day || "Lunes",
+        day: dayVal,
         sets: setsArray
       };
     });
@@ -347,6 +368,59 @@ export function WorkoutDetailsClient({ initialWorkout, surplusTarget }: WorkoutD
       })
       .finally(() => setIsLoadingExercises(false));
   }, []);
+
+  // Fetch/reload workouts for the selected week
+  useEffect(() => {
+    if (!initialWorkout.id) return;
+    
+    const fetchWorkoutForWeek = async () => {
+      try {
+        const res = await fetch(`/api/workouts/${initialWorkout.id}`);
+        if (!res.ok) throw new Error("Fallo al obtener entrenamientos");
+        const data = await res.json();
+        if (data && Array.isArray(data.exercises)) {
+          // Map database exercises to LoggedExercises format
+          const mapped = data.exercises.map((ex: any) => {
+            const setsArray = [];
+            for (let i = 0; i < ex.sets; i++) {
+              setsArray.push({
+                reps: ex.reps.toString(),
+                weight: (ex.weight ?? 0).toString()
+              });
+            }
+            
+            // Map legacy day names (Lunes, Martes) to dates of the current week start
+            let dayVal = ex.day || "Lunes";
+            if (DIAS_SEMANA.includes(dayVal)) {
+              const dayIndex = DIAS_SEMANA.indexOf(dayVal);
+              const dateOfCurrentWeek = new Date(currentWeekStart);
+              dateOfCurrentWeek.setDate(currentWeekStart.getDate() + dayIndex);
+              const yyyy = dateOfCurrentWeek.getFullYear();
+              const mm = String(dateOfCurrentWeek.getMonth() + 1).padStart(2, '0');
+              const dd = String(dateOfCurrentWeek.getDate()).padStart(2, '0');
+              dayVal = `${yyyy}-${mm}-${dd}`;
+            }
+
+            return {
+              id: ex.id,
+              exerciseId: ex.exerciseId,
+              exerciseName: ex.exercise.name,
+              imageUrl: ex.exercise.imageUrl || undefined,
+              description: ex.exercise.description || undefined,
+              muscleGroup: ex.exercise.muscleGroup || undefined,
+              day: dayVal,
+              sets: setsArray
+            };
+          });
+          setLoggedExercises(mapped);
+        }
+      } catch (err) {
+        console.error("Error reloading workout week details:", err);
+      }
+    };
+
+    fetchWorkoutForWeek();
+  }, [currentWeekStart, initialWorkout.id]);
 
   const filteredExercises = exercises.filter((ex) => {
     const matchesSearch = ex.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -571,7 +645,7 @@ export function WorkoutDetailsClient({ initialWorkout, surplusTarget }: WorkoutD
         {/* Weekly Grid */}
         <div className="flex overflow-x-auto pb-2 gap-2 snap-x hide-scrollbar items-stretch lg:grid lg:grid-cols-7 lg:gap-2 lg:overflow-x-visible lg:pb-0">
           {weekDates.map(({ dateStr, dayName, dateObj }) => {
-            const dayExercises = loggedExercises.filter(e => e.day === dayName);
+            const dayExercises = loggedExercises.filter(e => e.day === dateStr);
             const isToday = isMounted && dayName === currentDayName;
             const isEmpty = dayExercises.length === 0;
             const shortName = SHORT_DAYS[dayName] || dayName.substring(0, 3).toUpperCase();
@@ -596,7 +670,7 @@ export function WorkoutDetailsClient({ initialWorkout, surplusTarget }: WorkoutD
                   variant="outline" 
                   className="w-full mb-2 h-7 text-xs py-1 px-2 border-dashed border-primary/40 text-primary hover:bg-primary/10 bg-white/50 dark:bg-black/50"
                   onClick={() => {
-                    setSelectedDayForAdd(dayName);
+                    setSelectedDayForAdd(dateStr);
                     setIsExerciseDialogOpen(true);
                   }}
                 >
@@ -609,7 +683,7 @@ export function WorkoutDetailsClient({ initialWorkout, surplusTarget }: WorkoutD
                     variant="ghost"
                     size="sm"
                     className="w-full mb-2 text-[10px] h-6 py-0.5 px-2 text-muted-foreground hover:text-foreground bg-white/40 dark:bg-white/5"
-                    onClick={() => setCopyDaySource(dayName)}
+                    onClick={() => setCopyDaySource(dateStr)}
                   >
                     <Copy className="h-3 w-3 mr-1" /> Copiar Rutina
                   </Button>
@@ -729,12 +803,12 @@ export function WorkoutDetailsClient({ initialWorkout, surplusTarget }: WorkoutD
                 <DialogDescription>Selecciona el día destino para copiar los ejercicios.</DialogDescription>
               </DialogHeader>
               <div className="grid grid-cols-2 gap-2 mt-4">
-                {DIAS_SEMANA.map(dayName => (
+                {weekDates.map(d => (
                   <Button 
-                    key={dayName} 
+                    key={d.dateStr} 
                     type="button"
                     variant="outline" 
-                    disabled={dayName === copyDaySource}
+                    disabled={d.dateStr === copyDaySource}
                     className="hover:border-primary hover:text-primary transition-colors"
                     onClick={() => {
                       if (copyDaySource) {
@@ -742,16 +816,16 @@ export function WorkoutDetailsClient({ initialWorkout, surplusTarget }: WorkoutD
                          const newExercises = exercisesToCopy.map(ex => ({
                            ...ex,
                            id: Math.random().toString(36).substr(2, 9),
-                           day: dayName,
+                           day: d.dateStr,
                            sets: ex.sets.map(s => ({ ...s }))
                          }));
                          setLoggedExercises(prev => [...prev, ...newExercises]);
                          setCopyDaySource(null);
-                         toast({ title: "Rutina copiada", description: `Ejercicios copiados al ${dayName}` });
+                         toast({ title: "Rutina copiada", description: `Ejercicios copiados al ${d.dayName}` });
                       }
                     }}
                   >
-                    {dayName}
+                    {d.dayName}
                   </Button>
                 ))}
               </div>
