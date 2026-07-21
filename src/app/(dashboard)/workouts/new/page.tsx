@@ -498,6 +498,7 @@ export default function LogWorkoutPage() {
 
   const editingExercise = loggedExercises.find(e => e.id === editingExerciseId);
 
+  return (
     <DashboardLayout
       title=""
       description=""
