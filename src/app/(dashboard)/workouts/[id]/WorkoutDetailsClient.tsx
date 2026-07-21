@@ -473,6 +473,10 @@ export function WorkoutDetailsClient({ initialWorkout, surplusTarget }: WorkoutD
             dayName,
             exercises: exList.map((ex) => ({
                exerciseId: ex.exerciseId,
+               exerciseName: ex.exerciseName,
+               muscleGroup: ex.muscleGroup,
+               imageUrl: ex.imageUrl,
+               description: ex.description,
                sets: ex.sets.map((s) => ({ reps: s.reps, weight: s.weight }))
             }))
          };

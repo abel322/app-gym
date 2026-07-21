@@ -129,14 +129,51 @@ export async function PUT(
           let globalOrder = 0;
           for (const day of weekExercises) {
             for (const ex of day.exercises) {
+              if (!ex.exerciseId) {
+                throw new Error("Falta el identificador del ejercicio (exerciseId).");
+              }
+
+              // Ensure the exercise exists in the database
+              let exerciseId = ex.exerciseId;
+              const exerciseExists = await tx.exercise.findUnique({
+                where: { id: exerciseId }
+              });
+
+              if (!exerciseExists) {
+                // Try to find it by name to prevent duplicates
+                const existingByName = await tx.exercise.findFirst({
+                  where: { name: { equals: ex.exerciseName, mode: 'insensitive' } }
+                });
+
+                if (existingByName) {
+                  exerciseId = existingByName.id;
+                } else {
+                  const fallbackImage = `https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=400&q=80`;
+                  const newEx = await tx.exercise.create({
+                    data: {
+                      id: exerciseId.startsWith('default-') ? `ai-${Date.now()}-${Math.random().toString(36).substr(2, 5)}` : exerciseId,
+                      name: ex.exerciseName || "Ejercicio",
+                      muscleGroup: ex.muscleGroup || "cuerpo completo",
+                      imageUrl: ex.imageUrl || fallbackImage,
+                      description: ex.description || `Ejercicio para ${ex.muscleGroup || "cuerpo completo"}.`,
+                    }
+                  });
+                  exerciseId = newEx.id;
+                }
+              }
+
+              const exerciseSetsCount = ex.sets?.length || 1;
+              const firstSetReps = parseInt(ex.sets?.[0]?.reps) || 0;
+              const firstSetWeight = parseFloat(ex.sets?.[0]?.weight) || 0;
+
               await tx.workoutExercise.create({
                 data: {
                   workoutId: params.id,
-                  exerciseId: ex.exerciseId,
+                  exerciseId: exerciseId,
                   order: globalOrder++,
-                  sets: ex.sets.length,
-                  reps: parseInt(ex.sets[0]?.reps) || 0,
-                  weight: parseFloat(ex.sets[0]?.weight) || 0,
+                  sets: exerciseSetsCount,
+                  reps: firstSetReps,
+                  weight: firstSetWeight,
                   day: day.dayName
                 }
               });
