@@ -78,7 +78,19 @@ function parseMacros(description: string | null, calories: number | null, goal: 
     let cPct = 0.50;
     let fPct = 0.20;
     
-    if (goal && goal.startsWith("CUSTOM:")) {
+    if (goal && goal.startsWith("GRAMS:")) {
+      try {
+        const parsed = JSON.parse(goal.replace("GRAMS:", ""));
+        const totalGramsCal = (parsed.p * 4) + (parsed.c * 4) + (parsed.f * 9);
+        if (totalGramsCal > 0) {
+          pPct = (parsed.p * 4) / totalGramsCal;
+          cPct = (parsed.c * 4) / totalGramsCal;
+          fPct = (parsed.f * 9) / totalGramsCal;
+        }
+      } catch (e) {
+        console.error("Error parsing grams macros for estimation", e);
+      }
+    } else if (goal && goal.startsWith("CUSTOM:")) {
       try {
         const parsed = JSON.parse(goal.replace("CUSTOM:", ""));
         pPct = (parsed.p || 30) / 100;
@@ -111,30 +123,43 @@ function parseMacros(description: string | null, calories: number | null, goal: 
 // Helper to calculate daily macro goals based on target calories
 function getDailyMacroTargets(targetCalories: number | null, goal: string | null) {
   const calories = targetCalories || 2000;
-  let pPct = 0.30;
-  let cPct = 0.50;
-  let fPct = 0.20;
+  
+  if (goal && goal.startsWith("GRAMS:")) {
+    try {
+      const parsed = JSON.parse(goal.replace("GRAMS:", ""));
+      return {
+        protein: Number(parsed.p) || 0,
+        carbs: Number(parsed.c) || 0,
+        fats: Number(parsed.f) || 0,
+        goalName: parsed.goal || "Personalizado",
+        custom: true,
+      };
+    } catch (e) {
+      console.error("Error parsing grams macros", e);
+    }
+  }
   
   if (goal && goal.startsWith("CUSTOM:")) {
     try {
       const parsed = JSON.parse(goal.replace("CUSTOM:", ""));
-      pPct = (parsed.p || 30) / 100;
-      cPct = (parsed.c || 50) / 100;
-      fPct = (parsed.f || 20) / 100;
+      const pPct = (parsed.p || 30) / 100;
+      const cPct = (parsed.c || 50) / 100;
+      const fPct = (parsed.f || 20) / 100;
       return {
         protein: Math.round((calories * pPct) / 4),
         carbs: Math.round((calories * cPct) / 4),
         fats: Math.round((calories * fPct) / 9),
+        goalName: "Personalizado",
         custom: true,
-        pPct: parsed.p,
-        cPct: parsed.c,
-        fPct: parsed.f,
       };
     } catch (e) {
       console.error("Error parsing custom macros targets", e);
     }
   }
   
+  let pPct = 0.30;
+  let cPct = 0.50;
+  let fPct = 0.20;
   const lowerGoal = (goal || "").toLowerCase();
   if (lowerGoal.includes("déficit") || lowerGoal.includes("def") || lowerGoal.includes("lose")) {
     pPct = 0.35;
@@ -150,6 +175,7 @@ function getDailyMacroTargets(targetCalories: number | null, goal: string | null
     protein: Math.round((calories * pPct) / 4),
     carbs: Math.round((calories * cPct) / 4),
     fats: Math.round((calories * fPct) / 9),
+    goalName: goal || "Superávit",
     custom: false,
   };
 }
@@ -165,12 +191,12 @@ function seedRandom(str: string) {
 
 export default function NutritionClient({ plans }: { plans: Plan[] }) {
   const [isPending, startTransition] = useTransition();
-  const [isCreatePlanOpen, setIsCreatePlanOpen] = useState(false);
+  const [isNewPlanModalOpen, setIsNewPlanModalOpen] = useState(false);
   const [isMealModalOpen, setIsMealModalOpen] = useState(false);
   const [isCopyDialogOpen, setIsCopyDialogOpen] = useState(false);
   const [editingMeal, setEditingMeal] = useState<Meal | null>(null);
   const [showOptions, setShowOptions] = useState(false);
-  const [showPlanDropdown, setShowPlanDropdown] = useState(false);
+  const [isPlanDropdownOpen, setIsPlanDropdownOpen] = useState(false);
   const [copyTargetDays, setCopyTargetDays] = useState<number[]>([]);
   
   // Multiple plans state
@@ -207,10 +233,9 @@ export default function NutritionClient({ plans }: { plans: Plan[] }) {
   const [planName, setPlanName] = useState("");
   const [planGoal, setPlanGoal] = useState("Superávit");
   const [planCalories, setPlanCalories] = useState<number | "">("");
-  const [isCustomMacros, setIsCustomMacros] = useState(false);
-  const [macroProtein, setMacroProtein] = useState<number>(30);
-  const [macroCarbs, setMacroCarbs] = useState<number>(50);
-  const [macroFats, setMacroFats] = useState<number>(20);
+  const [macroProtein, setMacroProtein] = useState<number | "">("");
+  const [macroCarbs, setMacroCarbs] = useState<number | "">("");
+  const [macroFats, setMacroFats] = useState<number | "">("");
 
   // Form states for Meal
   const [mealName, setMealName] = useState("");
@@ -231,10 +256,61 @@ export default function NutritionClient({ plans }: { plans: Plan[] }) {
     }
   );
 
+  // Auto calculate estimated grams of macros inside New Plan Modal
+  const handleCaloriesChange = (val: number | "") => {
+    setPlanCalories(val);
+    if (val) {
+      let pPct = 0.30;
+      let cPct = 0.50;
+      let fPct = 0.20;
+      
+      if (planGoal === "Déficit") {
+        pPct = 0.35;
+        cPct = 0.40;
+        fPct = 0.25;
+      } else if (planGoal === "Mantenimiento") {
+        pPct = 0.25;
+        cPct = 0.50;
+        fPct = 0.25;
+      }
+      
+      setMacroProtein(Math.round((Number(val) * pPct) / 4));
+      setMacroCarbs(Math.round((Number(val) * cPct) / 4));
+      setMacroFats(Math.round((Number(val) * fPct) / 9));
+    } else {
+      setMacroProtein("");
+      setMacroCarbs("");
+      setMacroFats("");
+    }
+  };
+
+  const handleGoalChange = (newGoal: string) => {
+    setPlanGoal(newGoal);
+    if (planCalories) {
+      let pPct = 0.30;
+      let cPct = 0.50;
+      let fPct = 0.20;
+      
+      if (newGoal === "Déficit") {
+        pPct = 0.35;
+        cPct = 0.40;
+        fPct = 0.25;
+      } else if (newGoal === "Mantenimiento") {
+        pPct = 0.25;
+        cPct = 0.50;
+        fPct = 0.25;
+      }
+      
+      setMacroProtein(Math.round((Number(planCalories) * pPct) / 4));
+      setMacroCarbs(Math.round((Number(planCalories) * cPct) / 4));
+      setMacroFats(Math.round((Number(planCalories) * fPct) / 9));
+    }
+  };
+
   // Sync plan switch selection and re-touch server-side updatedAt active ranking
   const handleSelectPlan = (planId: string) => {
     setActivePlanId(planId);
-    setShowPlanDropdown(false);
+    setIsPlanDropdownOpen(false);
     if (typeof window !== "undefined") {
       localStorage.setItem("activePlanId", planId);
     }
@@ -340,14 +416,19 @@ export default function NutritionClient({ plans }: { plans: Plan[] }) {
   }, [optimisticMeals, currentWeekStart]);
 
   const handleCreatePlan = () => {
-    if (isCustomMacros && (macroProtein + macroCarbs + macroFats !== 100)) {
-      alert(`La suma de los porcentajes de macronutrientes debe ser exactamente 100%. Actualmente suma ${macroProtein + macroCarbs + macroFats}%.`);
-      return;
-    }
+    if (!planName || !planCalories) return;
 
-    const finalGoal = isCustomMacros 
-      ? `CUSTOM:${JSON.stringify({ p: macroProtein, c: macroCarbs, f: macroFats })}` 
-      : planGoal;
+    const pGrams = macroProtein ? Number(macroProtein) : 0;
+    const cGrams = macroCarbs ? Number(macroCarbs) : 0;
+    const fGrams = macroFats ? Number(macroFats) : 0;
+
+    // Serialize macros goals inside the goal column string
+    const finalGoal = `GRAMS:${JSON.stringify({
+      goal: planGoal,
+      p: pGrams,
+      c: cGrams,
+      f: fGrams
+    })}`;
 
     startTransition(async () => {
       try {
@@ -362,14 +443,14 @@ export default function NutritionClient({ plans }: { plans: Plan[] }) {
             localStorage.setItem("activePlanId", newPlan.id);
           }
         }
-        setIsCreatePlanOpen(false);
+        setIsNewPlanModalOpen(false);
         // Reset states
         setPlanName("");
         setPlanCalories("");
-        setIsCustomMacros(false);
-        setMacroProtein(30);
-        setMacroCarbs(50);
-        setMacroFats(20);
+        setPlanGoal("Superávit");
+        setMacroProtein("");
+        setMacroCarbs("");
+        setMacroFats("");
       } catch (e) {
         console.error("Error creating plan", e);
       }
@@ -545,7 +626,6 @@ export default function NutritionClient({ plans }: { plans: Plan[] }) {
     const records = [];
     const today = new Date();
     
-    // Go back 30 days
     for (let i = 29; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(today.getDate() - i);
@@ -665,11 +745,126 @@ export default function NutritionClient({ plans }: { plans: Plan[] }) {
   // Show active plan helper text
   const planGoalLabel = useMemo(() => {
     if (!plan) return "";
+    if (plan.goal && plan.goal.startsWith("GRAMS:")) {
+      try {
+        const parsed = JSON.parse(plan.goal.replace("GRAMS:", ""));
+        return parsed.goal || "Personalizado";
+      } catch {
+        return "Personalizado";
+      }
+    }
     if (plan.goal && plan.goal.startsWith("CUSTOM:")) {
-      return "Objetivos Personalizados";
+      return "Personalizado";
     }
     return plan.goal;
   }, [plan]);
+
+  // Shared Helper modal component for plan creation
+  function renderCreatePlanModal() {
+    return (
+      <Dialog open={isNewPlanModalOpen} onOpenChange={setIsNewPlanModalOpen}>
+        <DialogContent className="sm:max-w-[425px] border-purple-100 dark:border-white/10 z-50 bg-white dark:bg-zinc-900 shadow-xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-purple-900 dark:text-purple-100">
+              Nuevo Plan Nutricional
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4 text-sm">
+            <div className="grid gap-1.5">
+              <Label htmlFor="planName" className="font-semibold text-gray-700 dark:text-slate-300">Nombre del Plan</Label>
+              <Input
+                id="planName"
+                placeholder="Ej: Definición Verano, Volumen Limpio"
+                value={planName}
+                onChange={(e) => setPlanName(e.target.value)}
+                className="focus-visible:ring-purple-500"
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="planGoal" className="font-semibold text-gray-700 dark:text-slate-300">Tipo de Objetivo</Label>
+              <Select value={planGoal} onValueChange={handleGoalChange}>
+                <SelectTrigger className="focus:ring-purple-500">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Superávit">Superávit Calórico (Volumen)</SelectItem>
+                  <SelectItem value="Déficit">Déficit Calórico (Definición)</SelectItem>
+                  <SelectItem value="Mantenimiento">Mantenimiento</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="planCalories" className="font-semibold text-gray-700 dark:text-slate-300">Meta de Calorías Diarias (Kcal)</Label>
+              <Input
+                id="planCalories"
+                type="number"
+                placeholder="Ej: 2200"
+                value={planCalories}
+                onChange={(e) => handleCaloriesChange(e.target.value ? Number(e.target.value) : "")}
+                className="focus-visible:ring-purple-500"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label className="font-semibold text-gray-700 dark:text-slate-300">Metas de Macronutrientes (Gramos)</Label>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="grid gap-1">
+                  <Label htmlFor="macroProtein" className="text-xs text-blue-500 font-bold">Proteínas (g)</Label>
+                  <Input
+                    id="macroProtein"
+                    type="number"
+                    placeholder="e.g. 150"
+                    value={macroProtein}
+                    onChange={(e) => setMacroProtein(e.target.value ? Number(e.target.value) : "")}
+                    className="focus-visible:ring-blue-500 text-center font-bold"
+                  />
+                </div>
+                <div className="grid gap-1">
+                  <Label htmlFor="macroCarbs" className="text-xs text-yellow-600 dark:text-yellow-500 font-bold">Carbs (g)</Label>
+                  <Input
+                    id="macroCarbs"
+                    type="number"
+                    placeholder="e.g. 250"
+                    value={macroCarbs}
+                    onChange={(e) => setMacroCarbs(e.target.value ? Number(e.target.value) : "")}
+                    className="focus-visible:ring-yellow-500 text-center font-bold"
+                  />
+                </div>
+                <div className="grid gap-1">
+                  <Label htmlFor="macroFats" className="text-xs text-pink-500 font-bold">Grasas (g)</Label>
+                  <Input
+                    id="macroFats"
+                    type="number"
+                    placeholder="e.g. 70"
+                    value={macroFats}
+                    onChange={(e) => setMacroFats(e.target.value ? Number(e.target.value) : "")}
+                    className="focus-visible:ring-pink-500 text-center font-bold"
+                  />
+                </div>
+              </div>
+              {planCalories && macroProtein && macroCarbs && macroFats && (
+                <div className="text-[10px] text-right font-semibold text-muted-foreground pt-1">
+                  Calorías Calculadas: <span className="text-purple-600 font-bold">{(Number(macroProtein) * 4) + (Number(macroCarbs) * 4) + (Number(macroFats) * 9)} kcal</span> vs Meta: <span className="font-bold">{planCalories} kcal</span>
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0 border-t pt-3 border-gray-100 dark:border-white/5">
+            <Button variant="outline" onClick={() => setIsNewPlanModalOpen(false)} className="w-full sm:w-auto">
+              Cancelar
+            </Button>
+            <Button 
+              disabled={isPending || !planName || !planCalories} 
+              onClick={handleCreatePlan} 
+              className="bg-purple-600 hover:bg-purple-700 text-white w-full sm:w-auto"
+            >
+              {isPending ? "Guardando..." : "Guardar y Activar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   if (plans.length === 0) {
     return (
@@ -683,112 +878,13 @@ export default function NutritionClient({ plans }: { plans: Plan[] }) {
         </p>
         <Button 
           className="bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 text-white shadow-lg shadow-purple-200 dark:shadow-none transition-all px-8 py-6 rounded-xl text-lg font-medium"
-          onClick={() => setIsCreatePlanOpen(true)}
+          onClick={() => setIsNewPlanModalOpen(true)}
         >
           <Plus className="h-5 w-5 mr-2" />
           Crear Plan Nutricional
         </Button>
 
-        {/* Create Plan Modal */}
-        <Dialog open={isCreatePlanOpen} onOpenChange={setIsCreatePlanOpen}>
-          <DialogContent className="sm:max-w-[425px] border-purple-100 dark:border-white/10">
-            <DialogHeader>
-              <DialogTitle className="text-2xl text-purple-900 dark:text-purple-100">Nuevo Plan</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name">Nombre del Plan</Label>
-                <Input
-                  id="name"
-                  placeholder="Ej: Fase de Volumen Intenso"
-                  value={planName}
-                  onChange={(e) => setPlanName(e.target.value)}
-                  className="focus-visible:ring-purple-500"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label>Distribución de Macros</Label>
-                <Select value={isCustomMacros ? "custom" : "standard"} onValueChange={(val) => setIsCustomMacros(val === "custom")}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="standard">Estándar (según objetivo)</SelectItem>
-                    <SelectItem value="custom">Personalizado (porcentajes)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {!isCustomMacros ? (
-                <div className="grid gap-2 animate-in fade-in slide-in-from-top-1">
-                  <Label htmlFor="goal">Objetivo</Label>
-                  <Select value={planGoal} onValueChange={setPlanGoal}>
-                    <SelectTrigger className="focus:ring-purple-500">
-                      <SelectValue placeholder="Selecciona tu objetivo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Superávit">Superávit Calórico (Volumen)</SelectItem>
-                      <SelectItem value="Déficit">Déficit Calórico (Definición)</SelectItem>
-                      <SelectItem value="Mantenimiento">Mantenimiento</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              ) : (
-                <div className="grid grid-cols-3 gap-2 border p-3 rounded-xl bg-muted/20 animate-in fade-in slide-in-from-top-1">
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="protPercent" className="text-xs text-blue-500 font-bold">Prot %</Label>
-                    <Input
-                      id="protPercent"
-                      type="number"
-                      value={macroProtein}
-                      onChange={(e) => setMacroProtein(Number(e.target.value))}
-                    />
-                  </div>
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="carbPercent" className="text-xs text-yellow-600 dark:text-yellow-500 font-bold">Carbs %</Label>
-                    <Input
-                      id="carbPercent"
-                      type="number"
-                      value={macroCarbs}
-                      onChange={(e) => setMacroCarbs(Number(e.target.value))}
-                    />
-                  </div>
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="fatPercent" className="text-xs text-pink-500 font-bold">Grasas %</Label>
-                    <Input
-                      id="fatPercent"
-                      type="number"
-                      value={macroFats}
-                      onChange={(e) => setMacroFats(Number(e.target.value))}
-                    />
-                  </div>
-                  <div className="col-span-3 text-[10px] text-right font-semibold text-muted-foreground mt-0.5">
-                    Total: <span className={cn(macroProtein + macroCarbs + macroFats === 100 ? "text-green-500" : "text-red-500")}>
-                      {macroProtein + macroCarbs + macroFats}%
-                    </span> (debe sumar 100%)
-                  </div>
-                </div>
-              )}
-
-              <div className="grid gap-2">
-                <Label htmlFor="calories">Calorías Objetivo Diarias (Kcal)</Label>
-                <Input
-                  id="calories"
-                  type="number"
-                  placeholder="Ej: 3200"
-                  value={planCalories}
-                  onChange={(e) => setPlanCalories(e.target.value ? Number(e.target.value) : "")}
-                  className="focus-visible:ring-purple-500"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button disabled={isPending || !planName} onClick={handleCreatePlan} className="bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 text-white w-full">
-                {isPending ? "Creando..." : "Crear Plan"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        {renderCreatePlanModal()}
       </div>
     );
   }
@@ -802,15 +898,15 @@ export default function NutritionClient({ plans }: { plans: Plan[] }) {
             {/* Dynamic Plan Switcher Dropdown */}
             <div className="relative">
               <button
-                onClick={() => setShowPlanDropdown(!showPlanDropdown)}
+                onClick={() => setIsPlanDropdownOpen(!isPlanDropdownOpen)}
                 className="flex items-center gap-1.5 text-xl sm:text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent hover:opacity-85 text-left capitalize transition-opacity"
               >
                 <span>{plan.name}</span>
                 <ChevronDown className="h-5 w-5 text-purple-600 shrink-0" />
               </button>
-              {showPlanDropdown && (
+              {isPlanDropdownOpen && (
                 <>
-                  <div className="fixed inset-0 z-10" onClick={() => setShowPlanDropdown(false)} />
+                  <div className="fixed inset-0 z-10" onClick={() => setIsPlanDropdownOpen(false)} />
                   <div className="absolute left-0 mt-1.5 w-64 bg-white dark:bg-zinc-900 border border-gray-100 dark:border-white/10 rounded-2xl shadow-lg p-1.5 z-20 animate-in fade-in slide-in-from-top-1">
                     <div className="text-[10px] font-bold text-muted-foreground px-3 py-1.5 uppercase tracking-wider">Tus Planes</div>
                     <div className="space-y-0.5 max-h-48 overflow-y-auto">
@@ -835,9 +931,10 @@ export default function NutritionClient({ plans }: { plans: Plan[] }) {
                     </div>
                     <div className="border-t border-gray-100 dark:border-white/5 my-1.5" />
                     <button
-                      onClick={() => {
-                        setShowPlanDropdown(false);
-                        setIsCreatePlanOpen(true);
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsPlanDropdownOpen(false);
+                        setIsNewPlanModalOpen(true);
                       }}
                       className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-purple-600 dark:text-purple-400 font-semibold hover:bg-purple-50 dark:hover:bg-purple-950/20 rounded-xl transition-colors text-left"
                     >
@@ -1338,14 +1435,14 @@ export default function NutritionClient({ plans }: { plans: Plan[] }) {
       {/* Historical Detailed Meals Dialog */}
       <Dialog open={selectedHistoryRecord !== null} onOpenChange={(open) => !open && setSelectedHistoryRecord(null)}>
         {selectedHistoryRecord && (
-          <DialogContent className="sm:max-w-[450px] border-purple-100 dark:border-white/10 max-h-[85vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-[450px] border-purple-100 dark:border-white/10 max-h-[85vh] overflow-y-auto font-sans">
             <DialogHeader>
               <DialogTitle className="text-xl text-purple-900 dark:text-purple-100 flex items-center gap-2">
                 <Calendar className="h-5 w-5 text-purple-600" />
                 Detalle del Día {selectedHistoryRecord.dateFull}
               </DialogTitle>
             </DialogHeader>
-            <div className="py-2 space-y-4">
+            <div className="py-2 space-y-4 text-sm">
               <div className="p-3 bg-muted/40 rounded-xl flex items-center justify-between text-sm">
                 <div>
                   <span className="text-xs text-muted-foreground uppercase font-bold">Consumo</span>
@@ -1404,7 +1501,7 @@ export default function NutritionClient({ plans }: { plans: Plan[] }) {
               </div>
             </div>
             <DialogFooter>
-              <Button onClick={() => setSelectedHistoryRecord(null)} className="bg-purple-600 hover:bg-purple-700 text-white w-full">
+              <Button onClick={() => setSelectedHistoryRecord(null)} className="bg-purple-600 hover:bg-purple-700 text-white w-full font-semibold">
                 Cerrar
               </Button>
             </DialogFooter>
@@ -1414,14 +1511,14 @@ export default function NutritionClient({ plans }: { plans: Plan[] }) {
 
       {/* Copy Plan Dialog */}
       <Dialog open={isCopyDialogOpen} onOpenChange={setIsCopyDialogOpen}>
-        <DialogContent className="sm:max-w-[400px] border-purple-100 dark:border-white/10">
+        <DialogContent className="sm:max-w-[400px] border-purple-100 dark:border-white/10 z-50 bg-white dark:bg-zinc-900 shadow-xl">
           <DialogHeader>
             <DialogTitle className="text-xl text-purple-900 dark:text-purple-100 flex items-center gap-2">
               <Copy className="h-5 w-5 text-purple-600" />
               Copiar Plan del Día
             </DialogTitle>
           </DialogHeader>
-          <div className="py-4">
+          <div className="py-4 text-sm">
             <p className="text-sm text-muted-foreground mb-4">
               Copia las comidas de este día ({weekDays.find(d => d.dateStr === activeDayDate)?.name} {weekDays.find(d => d.dateStr === activeDayDate)?.dayNum}) a los días seleccionados de esta semana.
             </p>
@@ -1458,7 +1555,7 @@ export default function NutritionClient({ plans }: { plans: Plan[] }) {
               })}
             </div>
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="gap-2 sm:gap-0 border-t pt-3 border-gray-100 dark:border-white/5">
             <Button variant="outline" onClick={() => setIsCopyDialogOpen(false)} className="w-full sm:w-auto">
               Cancelar
             </Button>
@@ -1471,14 +1568,14 @@ export default function NutritionClient({ plans }: { plans: Plan[] }) {
 
       {/* Meal Modal (Add/Edit Meal) */}
       <Dialog open={isMealModalOpen} onOpenChange={setIsMealModalOpen}>
-        <DialogContent className="sm:max-w-[420px] border-purple-100 dark:border-white/10">
+        <DialogContent className="sm:max-w-[420px] border-purple-100 dark:border-white/10 z-50 bg-white dark:bg-zinc-900 shadow-xl">
           <DialogHeader>
             <DialogTitle className="text-xl text-purple-900 dark:text-purple-100 flex items-center gap-2">
               <Utensils className="h-5 w-5 text-purple-600" />
               {editingMeal ? "Editar Comida" : "Agregar Comida"}
             </DialogTitle>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-4 py-4 text-sm">
             <div className="grid gap-2">
               <Label htmlFor="mealName">Nombre (ej: Desayuno, Almuerzo, Snack de Tarde)</Label>
               <Input
@@ -1520,13 +1617,15 @@ export default function NutritionClient({ plans }: { plans: Plan[] }) {
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="border-t pt-3 border-gray-100 dark:border-white/5">
             <Button disabled={isPending || !mealName} onClick={handleSaveMeal} className="bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 text-white w-full">
               {isPending ? "Guardando..." : "Guardar Comida"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {renderCreatePlanModal()}
     </div>
   );
 }
