@@ -213,9 +213,13 @@ const DEFAULT_REAL_EXERCISES: Exercise[] = [
 
 function ExerciseCardCompact({ logEx, onClick, onDelete }: { logEx: LoggedExercise, onClick: () => void, onDelete: () => void }) {
   const reps = logEx.sets[0]?.reps || "10";
-  const fallbackImage = "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=400&q=80";
-  const imageSrc = logEx.imageUrl || getExerciseImage(logEx.exerciseName, logEx.muscleGroup, logEx.imageUrl) || fallbackImage;
-  const muscleTag = logEx.muscleGroup || "Piernas";
+  const exercise = {
+    name: logEx.exerciseName,
+    exerciseName: logEx.exerciseName,
+    muscleGroup: logEx.muscleGroup,
+    category: logEx.muscleGroup,
+    imageUrl: logEx.imageUrl,
+  };
 
   return (
     <div 
@@ -224,24 +228,24 @@ function ExerciseCardCompact({ logEx, onClick, onDelete }: { logEx: LoggedExerci
     >
       <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0 border relative">
         <Image 
-          src={imageSrc} 
-          alt={logEx.exerciseName} 
+          src={exercise.imageUrl || getExerciseImage(exercise.name)} 
+          alt={exercise.name || exercise.exerciseName} 
           width={48} 
           height={48} 
           className="object-cover h-full w-full" 
         />
       </div>
       <div className="flex-1 min-w-0 flex flex-col justify-center">
-        <span className="font-semibold text-xs truncate max-w-[120px] text-foreground leading-tight" title={logEx.exerciseName}>
-          {logEx.exerciseName}
+        <span className="font-semibold text-xs text-foreground leading-tight" title={exercise.name || exercise.exerciseName}>
+          <span className="truncate max-w-[120px]">{exercise.name || exercise.exerciseName}</span>
         </span>
         <div className="flex items-center gap-1 mt-1 flex-wrap">
           <span className="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-md shrink-0">
             {logEx.sets.length}S {reps && `× ${reps}R`}
           </span>
-          {muscleTag && (
+          {(exercise.muscleGroup || exercise.category || 'General') && (
             <span className="text-[10px] font-semibold text-purple-600 bg-purple-50 dark:bg-purple-950/30 px-1.5 py-0.5 rounded-md capitalize shrink-0 truncate max-w-[80px]">
-              {muscleTag}
+              {exercise.muscleGroup || exercise.category || 'General'}
             </span>
           )}
         </div>
@@ -385,24 +389,36 @@ export function WorkoutDetailsClient({ initialWorkout, surplusTarget }: WorkoutD
             ...data,
             ...DEFAULT_REAL_EXERCISES.filter(de => !dbNames.has(de.name.toLowerCase()))
           ];
-          const enriched = combined.map(e => ({
-            ...e,
-            imageUrl: getExerciseImage(e.name, e.muscleGroup, e.imageUrl)
-          }));
+          const enriched = combined.map(e => {
+            const cleanName = e.name.replace(/\s*\(Generado por IA\)/gi, '').trim();
+            return {
+              ...e,
+              name: cleanName,
+              imageUrl: getExerciseImage(cleanName, e.muscleGroup, e.imageUrl)
+            };
+          });
           setExercises(enriched);
         } else {
-          setExercises(DEFAULT_REAL_EXERCISES.map(e => ({
-            ...e,
-            imageUrl: getExerciseImage(e.name, e.muscleGroup, e.imageUrl)
-          })));
+          setExercises(DEFAULT_REAL_EXERCISES.map(e => {
+            const cleanName = e.name.replace(/\s*\(Generado por IA\)/gi, '').trim();
+            return {
+              ...e,
+              name: cleanName,
+              imageUrl: getExerciseImage(cleanName, e.muscleGroup, e.imageUrl)
+            };
+          }));
         }
       })
       .catch((err) => {
         console.error("Error fetching exercises", err);
-        setExercises(DEFAULT_REAL_EXERCISES.map(e => ({
-          ...e,
-          imageUrl: getExerciseImage(e.name, e.muscleGroup, e.imageUrl)
-        })));
+        setExercises(DEFAULT_REAL_EXERCISES.map(e => {
+          const cleanName = e.name.replace(/\s*\(Generado por IA\)/gi, '').trim();
+          return {
+            ...e,
+            name: cleanName,
+            imageUrl: getExerciseImage(cleanName, e.muscleGroup, e.imageUrl)
+          };
+        }));
       })
       .finally(() => setIsLoadingExercises(false));
   }, []);
@@ -439,11 +455,12 @@ export function WorkoutDetailsClient({ initialWorkout, surplusTarget }: WorkoutD
               dayVal = `${yyyy}-${mm}-${dd}`;
             }
 
+            const cleanExName = ex.exercise.name.replace(/\s*\(Generado por IA\)/gi, '').trim();
             return {
               id: ex.id,
               exerciseId: ex.exerciseId,
-              exerciseName: ex.exercise.name,
-              imageUrl: getExerciseImage(ex.exercise.name, ex.exercise.muscleGroup, ex.exercise.imageUrl),
+              exerciseName: cleanExName,
+              imageUrl: getExerciseImage(cleanExName, ex.exercise.muscleGroup, ex.exercise.imageUrl),
               description: ex.exercise.description || undefined,
               muscleGroup: ex.exercise.muscleGroup || undefined,
               day: dayVal,

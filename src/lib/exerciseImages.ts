@@ -23,6 +23,8 @@ const EXERCISE_KEYWORD_IMAGES: Record<string, string> = {
   "leg press": "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=400&q=80",
   "zancadas": "https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=400&q=80",
   "lunge": "https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=400&q=80",
+  "step ups": "https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=400&q=80",
+  "step up": "https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=400&q=80",
   "aductores": "https://images.unsplash.com/photo-1434608519344-49d77a699e1d?w=400&q=80",
   "abductores": "https://images.unsplash.com/photo-1434608519344-49d77a699e1d?w=400&q=80",
   "adductor": "https://images.unsplash.com/photo-1434608519344-49d77a699e1d?w=400&q=80",
@@ -121,12 +123,17 @@ export function getExerciseImage(
   muscleGroup?: string | null,
   imageUrl?: string | null
 ): string {
-  // If the image URL is valid, non-empty, and NOT using the retired source.unsplash.com API
+  // If the image URL is valid, non-empty, and NOT using the retired source.unsplash.com API,
+  // and NOT containing any avatar or placeholder references (such as horse or caballo)
   if (
     imageUrl &&
     typeof imageUrl === "string" &&
     imageUrl.trim().length > 0 &&
-    !imageUrl.includes("source.unsplash.com")
+    !imageUrl.includes("source.unsplash.com") &&
+    !imageUrl.toLowerCase().includes("horse") &&
+    !imageUrl.toLowerCase().includes("caballo") &&
+    !imageUrl.toLowerCase().includes("avatar") &&
+    !imageUrl.toLowerCase().includes("placeholder")
   ) {
     return imageUrl;
   }
