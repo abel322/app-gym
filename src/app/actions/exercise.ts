@@ -1,6 +1,8 @@
 "use server";
 
 import prisma from "@/lib/prisma";
+import { getExerciseImage } from "@/lib/exerciseImages";
+
 
 export async function searchOrGenerateExercise(query: string) {
   if (!query || query.trim().length === 0) {
@@ -70,13 +72,16 @@ export async function searchOrGenerateExercise(query: string) {
     // Determinar grupo muscular (simplificado, IA real lo clasificaría)
     const muscleGroup = "full body";
 
+    // Resolve dynamic image URL using helper
+    const finalImageUrl = getExerciseImage(translatedName, muscleGroup, imageUrl);
+
     // 3. Guardar en Neon
     const newExercise = await prisma.exercise.create({
       data: {
         id: `ai-${Date.now()}`,
         name: translatedName,
         muscleGroup: muscleGroup,
-        imageUrl: imageUrl,
+        imageUrl: finalImageUrl,
         description: technicalDescription,
       },
     });

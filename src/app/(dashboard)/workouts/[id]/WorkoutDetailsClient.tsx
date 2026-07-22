@@ -13,6 +13,8 @@ import { ArrowLeft, Save, Plus, Trash2, Flame, Dumbbell, Sparkles, Copy, Chevron
 import Image from "next/image";
 import { searchOrGenerateExercise } from "@/app/actions/exercise";
 import { cn } from "@/lib/utils";
+import { getExerciseImage } from "@/lib/exerciseImages";
+
 
 const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
@@ -195,15 +197,15 @@ function ExerciseCardCompact({ logEx, onClick, onDelete }: { logEx: LoggedExerci
       className="cursor-pointer hover:border-primary transition-all shadow-sm w-full p-2 bg-gray-50 dark:bg-zinc-950/40 border border-transparent hover:border-gray-200 dark:hover:border-zinc-800 rounded-lg flex items-center gap-2 group/card" 
       onClick={onClick}
     >
-      {logEx.imageUrl ? (
-         <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0 border relative">
-           <Image src={logEx.imageUrl} alt={logEx.exerciseName} width={48} height={48} className="object-cover h-full w-full" />
-         </div>
-      ) : (
-         <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center shrink-0 border">
-           <Dumbbell className="h-5 w-5 text-muted-foreground" />
-         </div>
-      )}
+      <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0 border relative">
+        <Image 
+          src={getExerciseImage(logEx.exerciseName, logEx.muscleGroup, logEx.imageUrl)} 
+          alt={logEx.exerciseName} 
+          width={48} 
+          height={48} 
+          className="object-cover h-full w-full" 
+        />
+      </div>
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-xs truncate text-foreground leading-tight w-full" title={logEx.exerciseName}>
           {logEx.exerciseName}
@@ -358,14 +360,24 @@ export function WorkoutDetailsClient({ initialWorkout, surplusTarget }: WorkoutD
             ...data,
             ...DEFAULT_REAL_EXERCISES.filter(de => !dbNames.has(de.name.toLowerCase()))
           ];
-          setExercises(combined);
+          const enriched = combined.map(e => ({
+            ...e,
+            imageUrl: getExerciseImage(e.name, e.muscleGroup, e.imageUrl)
+          }));
+          setExercises(enriched);
         } else {
-          setExercises(DEFAULT_REAL_EXERCISES);
+          setExercises(DEFAULT_REAL_EXERCISES.map(e => ({
+            ...e,
+            imageUrl: getExerciseImage(e.name, e.muscleGroup, e.imageUrl)
+          })));
         }
       })
       .catch((err) => {
         console.error("Error fetching exercises", err);
-        setExercises(DEFAULT_REAL_EXERCISES);
+        setExercises(DEFAULT_REAL_EXERCISES.map(e => ({
+          ...e,
+          imageUrl: getExerciseImage(e.name, e.muscleGroup, e.imageUrl)
+        })));
       })
       .finally(() => setIsLoadingExercises(false));
   }, []);
@@ -406,7 +418,7 @@ export function WorkoutDetailsClient({ initialWorkout, surplusTarget }: WorkoutD
               id: ex.id,
               exerciseId: ex.exerciseId,
               exerciseName: ex.exercise.name,
-              imageUrl: ex.exercise.imageUrl || undefined,
+              imageUrl: getExerciseImage(ex.exercise.name, ex.exercise.muscleGroup, ex.exercise.imageUrl),
               description: ex.exercise.description || undefined,
               muscleGroup: ex.exercise.muscleGroup || undefined,
               day: dayVal,
