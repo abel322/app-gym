@@ -119,6 +119,20 @@ function ExerciseImage({ src, alt, className = "h-12 w-12" }: { src: string; alt
 
 const DEFAULT_REAL_EXERCISES: Exercise[] = [
   {
+    id: "default-aductores",
+    name: "Aductores",
+    muscleGroup: "Piernas",
+    imageUrl: "https://images.unsplash.com/photo-1434608519344-49d77a699e1d?w=400&q=80",
+    description: "Ejercicio en máquina enfocado en desarrollar fuerza y estabilidad en aductores.",
+  },
+  {
+    id: "default-biceps",
+    name: "Biceps",
+    muscleGroup: "Brazos",
+    imageUrl: "https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=400&q=80",
+    description: "Flexión de brazos con mancuernas para concentrar el estímulo en el bíceps braquial.",
+  },
+  {
     id: "default-press-banca",
     name: "Press de Banca",
     muscleGroup: "Pecho",
@@ -150,15 +164,8 @@ const DEFAULT_REAL_EXERCISES: Exercise[] = [
     id: "default-prensa-pierna",
     name: "Prensa de Piernas",
     muscleGroup: "Piernas",
-    imageUrl: "https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=400&q=80",
+    imageUrl: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=400&q=80",
     description: "Empuje de piernas en máquina enfocado en aislar cuádriceps y glúteos de forma segura.",
-  },
-  {
-    id: "default-curl-biceps",
-    name: "Curl de Bíceps con Mancuernas",
-    muscleGroup: "Brazos",
-    imageUrl: "https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=400&q=80",
-    description: "Flexión de brazos con mancuernas para concentrar el estímulo en el bíceps braquial.",
   },
   {
     id: "default-press-militar",
@@ -171,27 +178,45 @@ const DEFAULT_REAL_EXERCISES: Exercise[] = [
     id: "default-fondos-paralelas",
     name: "Fondos en Paralelas",
     muscleGroup: "Pecho",
-    imageUrl: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&q=80",
+    imageUrl: "https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=400&q=80",
     description: "Flexo-extensión de brazos en barras paralelas para pecho inferior y tríceps.",
   },
   {
     id: "default-zancadas",
     name: "Zancadas con Mancuernas",
     muscleGroup: "Piernas",
-    imageUrl: "https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=400&q=80",
+    imageUrl: "https://images.unsplash.com/photo-1538805060514-97d9cc17730c?w=400&q=80",
     description: "Zancadas alternadas unilaterales para glúteos, cuádriceps y balance.",
   },
   {
     id: "default-elevaciones-laterales",
     name: "Elevaciones Laterales",
     muscleGroup: "Hombros",
-    imageUrl: "https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=400&q=80",
+    imageUrl: "https://images.unsplash.com/photo-1532029837206-abbe2b7620e3?w=400&q=80",
     description: "Aperturas laterales con mancuerna para aislar la cabeza lateral del deltoides.",
+  },
+  {
+    id: "default-extensiones-triceps",
+    name: "Extensiones de Tríceps",
+    muscleGroup: "Brazos",
+    imageUrl: "https://images.unsplash.com/photo-1530822847156-5df684ec5ee1?w=400&q=80",
+    description: "Extensión de brazos en polea para aislar tríceps.",
+  },
+  {
+    id: "default-plancha",
+    name: "Plancha Abdominal",
+    muscleGroup: "Cintura/Core",
+    imageUrl: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&q=80",
+    description: "Isometría de abdomen para fortalecer el core.",
   }
 ];
 
 function ExerciseCardCompact({ logEx, onClick, onDelete }: { logEx: LoggedExercise, onClick: () => void, onDelete: () => void }) {
   const reps = logEx.sets[0]?.reps || "10";
+  const fallbackImage = "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=400&q=80";
+  const imageSrc = logEx.imageUrl || getExerciseImage(logEx.exerciseName, logEx.muscleGroup, logEx.imageUrl) || fallbackImage;
+  const muscleTag = logEx.muscleGroup || "Piernas";
+
   return (
     <div 
       className="cursor-pointer hover:border-primary transition-all shadow-sm w-full p-2 bg-gray-50 dark:bg-zinc-950/40 border border-transparent hover:border-gray-200 dark:hover:border-zinc-800 rounded-lg flex items-center gap-2 group/card" 
@@ -199,24 +224,24 @@ function ExerciseCardCompact({ logEx, onClick, onDelete }: { logEx: LoggedExerci
     >
       <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0 border relative">
         <Image 
-          src={getExerciseImage(logEx.exerciseName, logEx.muscleGroup, logEx.imageUrl)} 
+          src={imageSrc} 
           alt={logEx.exerciseName} 
           width={48} 
           height={48} 
           className="object-cover h-full w-full" 
         />
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="font-semibold text-xs truncate text-foreground leading-tight w-full" title={logEx.exerciseName}>
+      <div className="flex-1 min-w-0 flex flex-col justify-center">
+        <span className="font-semibold text-xs truncate max-w-[120px] text-foreground leading-tight" title={logEx.exerciseName}>
           {logEx.exerciseName}
-        </p>
+        </span>
         <div className="flex items-center gap-1 mt-1 flex-wrap">
           <span className="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-md shrink-0">
             {logEx.sets.length}S {reps && `× ${reps}R`}
           </span>
-          {logEx.muscleGroup && (
-            <span className="text-[10px] font-semibold text-purple-600 bg-purple-50 dark:bg-purple-950/30 px-1.5 py-0.5 rounded-md capitalize shrink-0 truncate max-w-[60px]">
-              {logEx.muscleGroup}
+          {muscleTag && (
+            <span className="text-[10px] font-semibold text-purple-600 bg-purple-50 dark:bg-purple-950/30 px-1.5 py-0.5 rounded-md capitalize shrink-0 truncate max-w-[80px]">
+              {muscleTag}
             </span>
           )}
         </div>

@@ -69,8 +69,20 @@ export async function searchOrGenerateExercise(query: string) {
     // Log de Depuración solicitado
     console.log("Consulta de imagen para:", translatedName, "-> Consulta de imagen:", englishQuery, "-> URL encontrada:", imageUrl);
 
-    // Determinar grupo muscular (simplificado, IA real lo clasificaría)
-    const muscleGroup = "full body";
+    // Determinar grupo muscular dinámicamente según la consulta
+    const determineMuscleGroup = (text: string): string => {
+      const lower = text.toLowerCase();
+      if (lower.includes("bicep") || lower.includes("tricep") || lower.includes("brazo") || lower.includes("antebr") || lower.includes("curl")) return "Brazos";
+      if (lower.includes("sentadilla") || lower.includes("prensa") || lower.includes("pierna") || lower.includes("aductor") || lower.includes("abductor") || lower.includes("zancada") || lower.includes("femoral") || lower.includes("cuadricep") || lower.includes("pantorrilla")) return "Piernas";
+      if (lower.includes("espalda") || lower.includes("dominada") || lower.includes("remo") || lower.includes("jalon") || lower.includes("dorsal") || lower.includes("trapecio")) return "Espalda";
+      if (lower.includes("pecho") || lower.includes("banca") || lower.includes("flexion") || lower.includes("fondo") || lower.includes("apertura") || lower.includes("pectoral")) return "Pecho";
+      if (lower.includes("hombro") || lower.includes("militar") || lower.includes("elevacion") || lower.includes("deltoid")) return "Hombros";
+      if (lower.includes("abdomina") || lower.includes("plancha") || lower.includes("core") || lower.includes("cintura") || lower.includes("crunch")) return "Cintura/Core";
+      if (lower.includes("cardio") || lower.includes("correr") || lower.includes("trotar") || lower.includes("cinta") || lower.includes("bici")) return "Cardio";
+      return "Piernas";
+    };
+
+    const muscleGroup = determineMuscleGroup(query);
 
     // Resolve dynamic image URL using helper
     const finalImageUrl = getExerciseImage(translatedName, muscleGroup, imageUrl);
