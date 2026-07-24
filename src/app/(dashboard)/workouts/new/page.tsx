@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/useToast";
 import { ArrowLeft, Save, Plus, Trash2, Flame, Dumbbell, Sparkles, Copy, ChevronLeft, ChevronRight } from "lucide-react";
 import { searchOrGenerateExercise } from "@/app/actions/exercise";
 import { cn } from "@/lib/utils";
-import { MuscleIcon, sanitizeExerciseName } from "@/components/workouts/MuscleIcon";
+import { MuscleIcon, getMuscleBadge, sanitizeExerciseName } from "@/components/workouts/MuscleIcon";
 
 
 const SHORT_DAYS: Record<string, string> = {
@@ -145,6 +145,7 @@ function ExerciseCardCompact({ logEx, onClick, onDelete }: { logEx: LoggedExerci
   const reps = logEx.sets[0]?.reps || "10";
   const cleanName = sanitizeExerciseName(logEx.exerciseName);
   const muscleGroup = logEx.muscleGroup || 'General';
+  const badge = getMuscleBadge(cleanName, muscleGroup);
 
   return (
     <div 
@@ -166,7 +167,7 @@ function ExerciseCardCompact({ logEx, onClick, onDelete }: { logEx: LoggedExerci
             {logEx.sets.length}S {reps && `× ${reps}R`}
           </span>
           {muscleGroup && (
-            <span className="text-[10px] font-semibold text-purple-600 bg-purple-50 dark:bg-purple-950/30 px-1.5 py-0.5 rounded-md capitalize shrink-0 truncate max-w-[80px]">
+            <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded-md capitalize shrink-0 truncate max-w-[80px]", badge.bg)}>
               {muscleGroup}
             </span>
           )}
