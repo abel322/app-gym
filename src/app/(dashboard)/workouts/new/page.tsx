@@ -13,10 +13,9 @@ import { useUser } from "@/hooks/useUser";
 import { useMeasurements } from "@/hooks/useMeasurements";
 import { useToast } from "@/hooks/useToast";
 import { ArrowLeft, Save, Plus, Trash2, Flame, Dumbbell, Sparkles, Copy, ChevronLeft, ChevronRight } from "lucide-react";
-import Image from "next/image";
 import { searchOrGenerateExercise } from "@/app/actions/exercise";
 import { cn } from "@/lib/utils";
-import { getExerciseImage } from "@/lib/exerciseImages";
+import { MuscleIcon, sanitizeExerciseName } from "@/components/workouts/MuscleIcon";
 
 
 const SHORT_DAYS: Record<string, string> = {
@@ -61,169 +60,114 @@ const ACTIVITY_MULTIPLIERS = {
   EXTRA_ACTIVE: 1.9,
 };
 
-function ExerciseImage({ src, alt, className = "h-12 w-12" }: { src: string; alt: string; className?: string }) {
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasError, setHasError] = useState(false);
-
-  if (hasError) {
-    return (
-      <div className={`rounded-md bg-muted flex items-center justify-center shrink-0 ${className}`}>
-        <Dumbbell className="h-5 w-5 text-muted-foreground" />
-      </div>
-    );
-  }
-
-  return (
-    <div className={`relative rounded-md overflow-hidden bg-muted shrink-0 border flex items-center justify-center ${className}`}>
-      {isLoading && (
-        <div className="absolute inset-0 bg-gray-200 animate-pulse z-10" />
-      )}
-      <Image
-        src={src}
-        alt={alt}
-        width={200}
-        height={200}
-        quality={75}
-        className={`object-cover h-full w-full transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
-        onLoad={() => setIsLoading(false)}
-        onError={() => {
-          setIsLoading(false);
-          setHasError(true);
-        }}
-      />
-    </div>
-  );
-}
-
 const DEFAULT_REAL_EXERCISES: Exercise[] = [
   {
     id: "default-aductores",
     name: "Aductores",
     muscleGroup: "Piernas",
-    imageUrl: "https://images.unsplash.com/photo-1434608519344-49d77a699e1d?w=400&q=80",
     description: "Ejercicio en máquina enfocado en desarrollar fuerza y estabilidad en aductores.",
   },
   {
     id: "default-biceps",
     name: "Biceps",
     muscleGroup: "Brazos",
-    imageUrl: "https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=400&q=80",
     description: "Flexión de brazos con mancuernas para concentrar el estímulo en el bíceps braquial.",
   },
   {
     id: "default-press-banca",
     name: "Press de Banca",
     muscleGroup: "Pecho",
-    imageUrl: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&q=80",
     description: "Empuje horizontal con barra para desarrollar fuerza en pectorales, tríceps y deltoides anterior.",
   },
   {
     id: "default-sentadilla",
     name: "Sentadilla con Barra",
     muscleGroup: "Piernas",
-    imageUrl: "https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=400&q=80",
     description: "Ejercicio compuesto básico para potenciar cuádriceps, glúteos e isquiotibiales.",
   },
   {
     id: "default-dominadas",
     name: "Dominadas",
     muscleGroup: "Espalda",
-    imageUrl: "https://images.unsplash.com/photo-1603252109303-2751441dd157?w=400&q=80",
     description: "Tracción vertical con peso corporal ideal para trabajar el dorsal ancho y bíceps.",
   },
   {
     id: "default-peso-muerto",
     name: "Peso Muerto",
     muscleGroup: "Espalda",
-    imageUrl: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=400&q=80",
     description: "Levantamiento de barra desde el suelo que estimula toda la cadena posterior.",
   },
   {
     id: "default-prensa-pierna",
     name: "Prensa de Piernas",
     muscleGroup: "Piernas",
-    imageUrl: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=400&q=80",
     description: "Empuje de piernas en máquina enfocado en aislar cuádriceps y glúteos de forma segura.",
   },
   {
     id: "default-press-militar",
     name: "Press Militar",
     muscleGroup: "Hombros",
-    imageUrl: "https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=400&q=80",
     description: "Empuje vertical con barra por encima de la cabeza para deltoides y tríceps.",
   },
   {
     id: "default-fondos-paralelas",
     name: "Fondos en Paralelas",
     muscleGroup: "Pecho",
-    imageUrl: "https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=400&q=80",
     description: "Flexo-extensión de brazos en barras paralelas para pecho inferior y tríceps.",
   },
   {
     id: "default-zancadas",
     name: "Zancadas con Mancuernas",
     muscleGroup: "Piernas",
-    imageUrl: "https://images.unsplash.com/photo-1538805060514-97d9cc17730c?w=400&q=80",
     description: "Zancadas alternadas unilaterales para glúteos, cuádriceps y balance.",
   },
   {
     id: "default-elevaciones-laterales",
     name: "Elevaciones Laterales",
     muscleGroup: "Hombros",
-    imageUrl: "https://images.unsplash.com/photo-1532029837206-abbe2b7620e3?w=400&q=80",
     description: "Aperturas laterales con mancuerna para aislar la cabeza lateral del deltoides.",
   },
   {
     id: "default-extensiones-triceps",
     name: "Extensiones de Tríceps",
     muscleGroup: "Brazos",
-    imageUrl: "https://images.unsplash.com/photo-1530822847156-5df684ec5ee1?w=400&q=80",
     description: "Extensión de brazos en polea para aislar tríceps.",
   },
   {
     id: "default-plancha",
     name: "Plancha Abdominal",
     muscleGroup: "Cintura/Core",
-    imageUrl: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&q=80",
     description: "Isometría de abdomen para fortalecer el core.",
   }
 ];
 
 function ExerciseCardCompact({ logEx, onClick, onDelete }: { logEx: LoggedExercise, onClick: () => void, onDelete: () => void }) {
   const reps = logEx.sets[0]?.reps || "10";
-  const exercise = {
-    name: logEx.exerciseName,
-    exerciseName: logEx.exerciseName,
-    muscleGroup: logEx.muscleGroup,
-    category: logEx.muscleGroup,
-    imageUrl: logEx.imageUrl,
-  };
+  const cleanName = sanitizeExerciseName(logEx.exerciseName);
+  const muscleGroup = logEx.muscleGroup || 'General';
 
   return (
     <div 
       className="cursor-pointer hover:border-primary transition-all shadow-sm w-full p-2 bg-gray-50 dark:bg-zinc-950/40 border border-transparent hover:border-gray-200 dark:hover:border-zinc-800 rounded-lg flex items-center gap-2 group/card" 
       onClick={onClick}
     >
-      <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0 border relative">
-        <Image 
-          src={exercise.imageUrl || getExerciseImage(exercise.name)} 
-          alt={exercise.name || exercise.exerciseName} 
-          width={48} 
-          height={48} 
-          className="object-cover h-full w-full" 
-        />
-      </div>
+      <MuscleIcon 
+        exerciseName={cleanName} 
+        muscleGroup={muscleGroup} 
+        containerClassName="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" 
+        className="w-5 h-5"
+      />
       <div className="flex-1 min-w-0 flex flex-col justify-center">
-        <span className="font-semibold text-xs text-foreground leading-tight" title={exercise.name || exercise.exerciseName}>
-          <span className="truncate max-w-[120px]">{exercise.name || exercise.exerciseName}</span>
+        <span className="font-semibold text-xs text-foreground leading-tight" title={cleanName}>
+          <span className="truncate max-w-[120px] block">{cleanName}</span>
         </span>
         <div className="flex items-center gap-1 mt-1 flex-wrap">
           <span className="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-md shrink-0">
             {logEx.sets.length}S {reps && `× ${reps}R`}
           </span>
-          {(exercise.muscleGroup || exercise.category || 'General') && (
+          {muscleGroup && (
             <span className="text-[10px] font-semibold text-purple-600 bg-purple-50 dark:bg-purple-950/30 px-1.5 py-0.5 rounded-md capitalize shrink-0 truncate max-w-[80px]">
-              {exercise.muscleGroup || exercise.category || 'General'}
+              {muscleGroup}
             </span>
           )}
         </div>
@@ -334,35 +278,26 @@ export default function LogWorkoutPage() {
             ...DEFAULT_REAL_EXERCISES.filter(de => !dbNames.has(de.name.toLowerCase()))
           ];
           const enriched = combined.map(e => {
-            const cleanName = e.name.replace(/\s*\(Generado por IA\)/gi, '').trim();
+            const cleanName = sanitizeExerciseName(e.name);
             return {
               ...e,
               name: cleanName,
-              imageUrl: getExerciseImage(cleanName, e.muscleGroup, e.imageUrl)
             };
           });
           setExercises(enriched);
         } else {
-          setExercises(DEFAULT_REAL_EXERCISES.map(e => {
-            const cleanName = e.name.replace(/\s*\(Generado por IA\)/gi, '').trim();
-            return {
-              ...e,
-              name: cleanName,
-              imageUrl: getExerciseImage(cleanName, e.muscleGroup, e.imageUrl)
-            };
-          }));
+          setExercises(DEFAULT_REAL_EXERCISES.map(e => ({
+            ...e,
+            name: sanitizeExerciseName(e.name),
+          })));
         }
       })
       .catch((err) => {
         console.error("Error fetching exercises", err);
-        setExercises(DEFAULT_REAL_EXERCISES.map(e => {
-          const cleanName = e.name.replace(/\s*\(Generado por IA\)/gi, '').trim();
-          return {
-            ...e,
-            name: cleanName,
-            imageUrl: getExerciseImage(cleanName, e.muscleGroup, e.imageUrl)
-          };
-        }));
+        setExercises(DEFAULT_REAL_EXERCISES.map(e => ({
+          ...e,
+          name: sanitizeExerciseName(e.name),
+        })));
       })
       .finally(() => setIsLoadingExercises(false));
   }, []);
@@ -397,14 +332,14 @@ export default function LogWorkoutPage() {
     const ex = exercises.find((e) => e.id === exerciseId);
     if (!ex || !selectedDateForAdd) return;
     
+    const cleanName = sanitizeExerciseName(ex.name);
     const newId = Math.random().toString(36).substr(2, 9);
     setLoggedExercises([
       ...loggedExercises,
       {
         id: newId,
         exerciseId,
-        exerciseName: ex.name,
-        imageUrl: ex.imageUrl,
+        exerciseName: cleanName,
         description: ex.description,
         muscleGroup: ex.muscleGroup,
         date: selectedDateForAdd,
@@ -415,10 +350,11 @@ export default function LogWorkoutPage() {
     setTimeout(() => setEditingExerciseId(newId), 150);
   };
 
-  const onSelectExercise = (item: { name: string; muscleGroup: string; imageUrl?: string | null; sets: number; reps: number }) => {
+  const onSelectExercise = (item: { name: string; muscleGroup: string; sets: number; reps: number }) => {
     const ex = exercises.find((e) => e.name === item.name);
     if (!ex || !selectedDateForAdd) return;
     
+    const cleanName = sanitizeExerciseName(item.name);
     const newId = Math.random().toString(36).substr(2, 9);
     const initialSets = Array.from({ length: item.sets }, () => ({ reps: item.reps.toString(), weight: "" }));
     
@@ -427,8 +363,7 @@ export default function LogWorkoutPage() {
       {
         id: newId,
         exerciseId: ex.id,
-        exerciseName: item.name,
-        imageUrl: item.imageUrl || ex.imageUrl,
+        exerciseName: cleanName,
         description: ex.description,
         muscleGroup: item.muscleGroup,
         date: selectedDateForAdd,
@@ -444,11 +379,10 @@ export default function LogWorkoutPage() {
     setIsGenerating(true);
     try {
       const newEx = await searchOrGenerateExercise(searchQuery);
-      const cleanName = newEx.name.replace(/\s*\(Generado por IA\)/gi, '').trim();
+      const cleanName = sanitizeExerciseName(newEx.name);
       const enrichedNewEx = {
         ...newEx,
         name: cleanName,
-        imageUrl: getExerciseImage(cleanName, newEx.muscleGroup, newEx.imageUrl)
       };
       
       if (!exercises.find(e => e.id === enrichedNewEx.id)) {
@@ -462,7 +396,6 @@ export default function LogWorkoutPage() {
           id: newId,
           exerciseId: enrichedNewEx.id,
           exerciseName: enrichedNewEx.name,
-          imageUrl: enrichedNewEx.imageUrl,
           description: enrichedNewEx.description,
           muscleGroup: enrichedNewEx.muscleGroup,
           date: selectedDateForAdd,
@@ -710,16 +643,13 @@ export default function LogWorkoutPage() {
             <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
               <DialogHeader>
                 <div className="flex items-center gap-3">
-                  {editingExercise?.imageUrl ? (
-                    <div className="h-10 w-10 rounded-full overflow-hidden shrink-0 border">
-                      <Image src={editingExercise.imageUrl} alt={editingExercise.exerciseName} width={40} height={40} className="object-cover h-full w-full" />
-                    </div>
-                  ) : (
-                    <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0 border">
-                      <Dumbbell className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                  )}
-                  <DialogTitle className="text-xl">{editingExercise?.exerciseName}</DialogTitle>
+                  <MuscleIcon 
+                    exerciseName={editingExercise?.exerciseName} 
+                    muscleGroup={editingExercise?.muscleGroup || ''} 
+                    containerClassName="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" 
+                    className="w-5 h-5"
+                  />
+                  <DialogTitle className="text-xl">{sanitizeExerciseName(editingExercise?.exerciseName)}</DialogTitle>
                 </div>
                 <DialogDescription>
                   Ajusta las series, peso y repeticiones.
@@ -774,7 +704,7 @@ export default function LogWorkoutPage() {
                      <Button type="button" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => {
                        removeExercise(editingExercise.id);
                        setEditingExerciseId(null);
-                     }}>
+                      }}>
                        <Trash2 className="h-4 w-4 mr-2" /> Eliminar
                      </Button>
                      <Button type="button" onClick={() => setEditingExerciseId(null)} className="bg-primary hover:bg-primary/90 text-white min-w-[100px]">
@@ -859,43 +789,44 @@ export default function LogWorkoutPage() {
                 {isLoadingExercises ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <div key={i} className="flex items-center gap-4 p-3 border rounded-lg animate-pulse">
-                      <div className="h-12 w-12 bg-muted rounded-md"></div>
+                      <div className="h-10 w-10 bg-muted rounded-xl"></div>
                       <div className="space-y-2 flex-1">
                         <div className="h-4 bg-muted rounded w-3/4"></div>
                         <div className="h-3 bg-muted rounded w-1/4"></div>
                       </div>
                     </div>
                   ))
-                ) : filteredExercises.slice(0, 50).map((ex) => (
-                  <Button 
-                    key={ex.id} 
-                    type="button"
-                    variant="outline" 
-                    className="justify-start text-left h-auto py-3 relative overflow-hidden group hover:border-primary/50"
-                    onClick={() => {
-                      const item = ex;
-                      onSelectExercise({ name: item.name, muscleGroup: item.muscleGroup, imageUrl: item.imageUrl, sets: 1, reps: 10 });
-                    }}
-                  >
-                    <div className="flex items-center gap-4 w-full">
-                      {ex.imageUrl ? (
-                        <ExerciseImage src={ex.imageUrl} alt={ex.name} />
-                      ) : (
-                        <div className="h-12 w-12 rounded-md bg-muted flex items-center justify-center shrink-0">
-                          <Dumbbell className="h-5 w-5 text-muted-foreground" />
+                ) : filteredExercises.slice(0, 50).map((ex) => {
+                  const cleanName = sanitizeExerciseName(ex.name);
+                  return (
+                    <Button 
+                      key={ex.id} 
+                      type="button"
+                      variant="outline" 
+                      className="justify-start text-left h-auto py-3 relative overflow-hidden group hover:border-primary/50"
+                      onClick={() => {
+                        onSelectExercise({ name: cleanName, muscleGroup: ex.muscleGroup, sets: 1, reps: 10 });
+                      }}
+                    >
+                      <div className="flex items-center gap-3 w-full">
+                        <MuscleIcon 
+                          exerciseName={cleanName} 
+                          muscleGroup={ex.muscleGroup} 
+                          containerClassName="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" 
+                          className="w-5 h-5"
+                        />
+                        <div className="flex-1 truncate">
+                          <p className="font-semibold truncate text-sm">{cleanName}</p>
+                          {ex.description ? (
+                            <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{ex.description}</p>
+                          ) : (
+                            <p className="text-xs text-muted-foreground capitalize mt-0.5">{ex.muscleGroup}</p>
+                          )}
                         </div>
-                      )}
-                      <div className="flex-1 truncate">
-                        <p className="font-semibold truncate">{ex.name}</p>
-                        {ex.description ? (
-                          <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{ex.description}</p>
-                        ) : (
-                          <p className="text-xs text-muted-foreground capitalize mt-0.5">{ex.muscleGroup}</p>
-                        )}
                       </div>
-                    </div>
-                  </Button>
-                ))}
+                    </Button>
+                  );
+                })}
                 {!isLoadingExercises && filteredExercises.length === 0 && (
                   <div className="flex flex-col items-center justify-center py-8 space-y-4">
                     <p className="text-center text-sm text-muted-foreground">No se encontraron ejercicios.</p>
