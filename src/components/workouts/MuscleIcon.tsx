@@ -1,9 +1,9 @@
 import React from "react";
 import {
   Footprints,
-  Dumbbell,
   Flame,
   Shield,
+  Dumbbell,
   Zap,
   Target,
   HeartPulse,
@@ -18,8 +18,14 @@ export interface MuscleBadgeResult {
 }
 
 /**
- * Retorna el icono, clases de fondo/texto/borde y etiqueta coherente para un ejercicio o grupo muscular.
- * Evalúa PRIMERO la categoría principal o grupo muscular asignado al ejercicio antes que el nombre.
+ * Retorna el icono y estilo visual de grupo muscular evaluando de forma ESTRICTA y ORDENADA:
+ * 1. Prioridad absoluta a Piernas / Tren Inferior (evaluado primero para evitar falsos positivos con 'curl' en 'Curl de piernas').
+ * 2. Pecho
+ * 3. Espalda
+ * 4. Hombros
+ * 5. Brazos
+ * 6. Core / Abdomen
+ * 7. Cardio
  */
 export const getMuscleBadge = (
   exerciseName: string = "",
@@ -28,11 +34,11 @@ export const getMuscleBadge = (
   const muscle = (muscleGroup || "").toLowerCase();
   const name = (exerciseName || "").toLowerCase();
 
-  // 1. Piernas / Tren Inferior (PRIORIDAD MÁXIMA)
+  // 1. PIERNAS (Evaluar primero piernas y palabras compuestas para evitar falsos positivos con 'curl')
   if (
     muscle.includes("pierna") ||
     muscle.includes("leg") ||
-    muscle.includes("cuadricep") ||
+    muscle.includes("cuadriceps") ||
     muscle.includes("cuádricep") ||
     muscle.includes("femoral") ||
     muscle.includes("gluteo") ||
@@ -40,6 +46,10 @@ export const getMuscleBadge = (
     muscle.includes("aductor") ||
     muscle.includes("abductor") ||
     muscle.includes("pantorrilla") ||
+    name.includes("pierna") ||
+    name.includes("femoral") ||
+    name.includes("cuadriceps") ||
+    name.includes("cuádricep") ||
     name.includes("sentadilla") ||
     name.includes("prensa") ||
     name.includes("aductor") ||
@@ -55,38 +65,18 @@ export const getMuscleBadge = (
     };
   }
 
-  // 2. Brazos / Bíceps / Tríceps
-  if (
-    muscle.includes("brazo") ||
-    muscle.includes("biceps") ||
-    muscle.includes("triceps") ||
-    muscle.includes("bíceps") ||
-    muscle.includes("tríceps") ||
-    muscle.includes("antebrazo") ||
-    muscle.includes("arm") ||
-    name.includes("curl") ||
-    name.includes("biceps") ||
-    name.includes("triceps") ||
-    name.includes("bíceps") ||
-    name.includes("tríceps")
-  ) {
-    return {
-      icon: Dumbbell,
-      bg: "bg-purple-500/20 text-purple-400 border border-purple-500/30 dark:bg-purple-500/20 dark:text-purple-400",
-      label: "Brazos",
-    };
-  }
-
-  // 3. Pecho / Pectorales
+  // 2. PECHO
   if (
     muscle.includes("pecho") ||
     muscle.includes("chest") ||
     muscle.includes("pectoral") ||
-    name.includes("press") ||
-    name.includes("apertura") ||
-    name.includes("fondo") ||
+    name.includes("pecho") ||
+    name.includes("press de banca") ||
+    name.includes("press banca") ||
     name.includes("flexion") ||
-    name.includes("flexión")
+    name.includes("flexión") ||
+    name.includes("apertura") ||
+    name.includes("fondo")
   ) {
     return {
       icon: Flame,
@@ -95,16 +85,17 @@ export const getMuscleBadge = (
     };
   }
 
-  // 4. Espalda
+  // 3. ESPALDA
   if (
     muscle.includes("espalda") ||
     muscle.includes("back") ||
     muscle.includes("dorsal") ||
     muscle.includes("trapecio") ||
-    name.includes("remo") ||
-    name.includes("dominada") ||
+    name.includes("espalda") ||
     name.includes("jalon") ||
     name.includes("jalón") ||
+    name.includes("remo") ||
+    name.includes("dominada") ||
     name.includes("pulldown")
   ) {
     return {
@@ -114,15 +105,15 @@ export const getMuscleBadge = (
     };
   }
 
-  // 5. Hombros
+  // 4. HOMBROS
   if (
     muscle.includes("hombro") ||
     muscle.includes("shoulder") ||
     muscle.includes("deltoid") ||
+    name.includes("hombro") ||
     name.includes("militar") ||
     name.includes("elevacion") ||
-    name.includes("elevación") ||
-    name.includes("press militar")
+    name.includes("elevación")
   ) {
     return {
       icon: Zap,
@@ -131,7 +122,34 @@ export const getMuscleBadge = (
     };
   }
 
-  // 6. Abdomen / Core
+  // 5. BRAZOS (Solo si no es de piernas, pecho o espalda)
+  if (
+    muscle.includes("brazo") ||
+    muscle.includes("biceps") ||
+    muscle.includes("triceps") ||
+    muscle.includes("bíceps") ||
+    muscle.includes("tríceps") ||
+    muscle.includes("antebrazo") ||
+    muscle.includes("arm") ||
+    name.includes("biceps") ||
+    name.includes("triceps") ||
+    name.includes("bíceps") ||
+    name.includes("tríceps") ||
+    name.includes("curl de biceps") ||
+    name.includes("curl de bíceps") ||
+    name.includes("curl martillo") ||
+    name.includes("extensiones de tríceps") ||
+    name.includes("extensiones de triceps") ||
+    (name.includes("curl") && !name.includes("pierna") && !name.includes("femoral"))
+  ) {
+    return {
+      icon: Dumbbell,
+      bg: "bg-purple-500/20 text-purple-400 border border-purple-500/30 dark:bg-purple-500/20 dark:text-purple-400",
+      label: "Brazos",
+    };
+  }
+
+  // 6. CORE / ABDOMEN
   if (
     muscle.includes("core") ||
     muscle.includes("cintura") ||
@@ -139,8 +157,7 @@ export const getMuscleBadge = (
     muscle.includes("abdomen") ||
     muscle.includes("abdominal") ||
     name.includes("plancha") ||
-    name.includes("crunch") ||
-    name.includes("elevacion de piernas")
+    name.includes("crunch")
   ) {
     return {
       icon: Target,
@@ -149,16 +166,14 @@ export const getMuscleBadge = (
     };
   }
 
-  // 7. Cardio / Calistenia
+  // 7. CARDIO
   if (
     muscle.includes("cardio") ||
     muscle.includes("resistencia") ||
     name.includes("correr") ||
     name.includes("trotar") ||
     name.includes("cinta") ||
-    name.includes("bici") ||
-    name.includes("soga") ||
-    name.includes("salto")
+    name.includes("bici")
   ) {
     return {
       icon: HeartPulse,
